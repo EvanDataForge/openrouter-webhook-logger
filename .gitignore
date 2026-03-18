@@ -1,0 +1,6 @@
+secrets.txt
+config/config.php
+*.log
+.DS_Store
+config.php
+debug/

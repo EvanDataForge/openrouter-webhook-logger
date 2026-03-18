@@ -1,0 +1,26 @@
+{
+    "resourceSpans": [
+        {
+            "scopeSpans": [
+                {
+                    "spans": [
+                        {
+                            "traceId": "aabbccddeeff001122334455667788aa",
+                            "spanId": "1122334455667788",
+                            "startTimeUnixNano": "1700000000000000000",
+                            "endTimeUnixNano":   "1700000001500000000",
+                            "attributes": [
+                                { "key": "gen_ai.request.model",           "value": { "stringValue": "gpt-4o" } },
+                                { "key": "gen_ai.usage.prompt_tokens",     "value": { "intValue": "120" } },
+                                { "key": "gen_ai.usage.completion_tokens", "value": { "intValue": "80" } },
+                                { "key": "gen_ai.usage.cost",              "value": { "doubleValue": 0.0035 } },
+                                { "key": "gen_ai.request.id",              "value": { "stringValue": "req-test-001" } },
+                                { "key": "user_id",                        "value": { "stringValue": "local-test-user" } }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

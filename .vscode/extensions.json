@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        // PHP Debugger (Xdebug integration)
+        "xdebug.php-debug",
+        // PHP Intelephense – Autocomplete, Go-to-Definition, Hover-Docs
+        "bmewburn.vscode-intelephense-client"
+    ]
+}

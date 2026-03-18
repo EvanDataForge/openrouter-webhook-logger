@@ -1,0 +1,45 @@
+name: Deploy to FTP
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy webservice
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install lftp
+        run: sudo apt-get install -y lftp
+
+      - name: Deploy via FTP
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USER:   ${{ secrets.FTP_USERNAME }}
+          FTP_PASS:   ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -e
+
+          # Keep password out of the process list via .netrc
+          printf 'machine %s login %s password %s\n' "$FTP_SERVER" "$FTP_USER" "$FTP_PASS" > ~/.netrc
+          chmod 600 ~/.netrc
+
+          # net:prefer-family INET  →  forces IPv4 PASV instead of IPv6 EPSV
+          lftp -c "
+            set net:prefer-family INET;
+            set ftp:passive-mode yes;
+            open $FTP_SERVER;
+            mirror -R src/ /src/;
+            mirror -R --exclude-glob config.php config/ /config/;
+            mirror -R public/ /public/;
+            quit
+          "
+
+          rm -f ~/.netrc

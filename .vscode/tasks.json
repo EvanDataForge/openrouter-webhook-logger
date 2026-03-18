@@ -1,0 +1,54 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start PHP Server",
+            "type": "shell",
+            "command": "php -S localhost:8080 -t ${workspaceFolder}/public",
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "PHP .* Development Server",
+                    "endsPattern": "started"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "server"
+            }
+        },
+        {
+            "label": "Test: Connection-Check (curl)",
+            "type": "shell",
+            "command": "curl -s -X POST http://localhost:8080/webhook.php -H 'Content-Type: application/json' -H 'Authorization: Bearer ${input:bearerToken}' -H 'X-Test-Connection: true' -d '{}' | python3 -m json.tool",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Test: OTLP Span senden (curl)",
+            "type": "shell",
+            "command": "curl -s -X POST http://localhost:8080/webhook.php -H 'Content-Type: application/json' -H 'Authorization: Bearer ${input:bearerToken}' -d @${workspaceFolder}/.vscode/test-payload.json | python3 -m json.tool",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "bearerToken",
+            "type": "promptString",
+            "description": "Bearer Token aus config.php",
+            "default": "4e488516d659792dd717d841ab1c32e76e80fc378e21cfc5a0ffcad6f335da32"
+        }
+    ]
+}
