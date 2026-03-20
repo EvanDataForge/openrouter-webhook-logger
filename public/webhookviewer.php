@@ -260,8 +260,8 @@ function action_spans(PDO $pdo): void
             if (in_array('cron', $hide)      && $s['cron_name'] !== null) return false;
             if (in_array('heartbeat', $hide) && $s['heartbeat'])          return false;
             return true;
-        })();
-        </script>
+        }));
+        $total  = count($spans);
         $offset = ($page - 1) * $per;
         $spans  = array_slice($spans, $offset, $per);
     } else {
@@ -1506,9 +1506,9 @@ document.addEventListener('keydown', function (e) {
 loadStats();
 loadSpans();
 
-// ...existing code...
-
 })();
 </script>
+
+<?php endif; ?>
 </body>
 </html>
