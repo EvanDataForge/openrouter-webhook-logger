@@ -946,12 +946,6 @@ details.collapsible > .detail-content {
 <header>
     <h1>OpenRouter Trace Dashboard</h1>
     <div class="header-right">
-        <button id="refresh-btn" title="Refresh" style="background:transparent;border:none;cursor:pointer;padding:0 8px;">
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11 3v2a6 6 0 1 1-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <polyline points="7 7 1 7 1 1" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </button>
         <form method="POST" style="margin:0">
             <input type="hidden" name="_viewer_action" value="logout">
             <input type="hidden" name="csrf" value="<?= htmlspecialchars(csrf_token()) ?>">
@@ -1512,11 +1506,7 @@ document.addEventListener('keydown', function (e) {
 loadStats();
 loadSpans();
 
-// Refresh-Button Funktion
-document.getElementById('refresh-btn').addEventListener('click', function () {
-    loadSpans();
-    loadStats();
-});
+// ...existing code...
 
 })();
 </script>
