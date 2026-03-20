@@ -1514,13 +1514,3 @@ loadSpans();
 
 })();
 </script>
-// ...existing code...
-(function () {
-'use strict';
-// Refresh-Button Funktion
-document.getElementById('refresh-btn').addEventListener('click', function () {
-    loadSpans();
-    loadStats();
-});
-</body>
-</html>
