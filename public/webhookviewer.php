@@ -348,6 +348,7 @@ function json_out(array $data, int $status = 200): void
 
 function action_spans(PDO $pdo): void
 {
+    $hideScanLimit = 500;
     $opts = [
         'sort'   => $_GET['sort']   ?? 'started_at',
         'dir'    => $_GET['dir']    ?? 'DESC',
@@ -361,19 +362,23 @@ function action_spans(PDO $pdo): void
 
     try {
         if ($hide) {
-            $batchSize = 200;
+            $batchSize = min(200, $hideScanLimit);
             $offset = 0;
             $matched = 0;
             $pageStart = ($page - 1) * $per;
             $pageEnd = $pageStart + $per;
             $spans = [];
+            $scanned = 0;
 
             do {
                 $batch = db_get_spans($pdo, $opts + [
-                    'per' => $batchSize,
+                    'per' => min($batchSize, $hideScanLimit - $scanned),
                     'offset' => $offset,
                 ]);
                 $batchCount = count($batch);
+                if ($batchCount === 0) {
+                    break;
+                }
 
                 foreach ($batch as $row) {
                     $row = enrich_span($row);
@@ -386,8 +391,9 @@ function action_spans(PDO $pdo): void
                     $matched++;
                 }
 
+                $scanned += $batchCount;
                 $offset += $batchCount;
-            } while ($batchCount === $batchSize);
+            } while ($batchCount === $batchSize && $scanned < $hideScanLimit);
 
             $total = $matched;
         } else {
