@@ -1,4 +1,37 @@
 <?php
+// Globaler JSON-Error-Handler für API-Requests (_action)
+if (isset($_GET['_action'])) {
+    set_exception_handler(function ($e) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        header('X-Content-Type-Options: nosniff');
+        echo json_encode([
+            'error' => 'Uncaught Exception',
+            'debug' => [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    });
+    set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        header('X-Content-Type-Options: nosniff');
+        echo json_encode([
+            'error' => 'PHP Error',
+            'debug' => [
+                'errno' => $errno,
+                'errstr' => $errstr,
+                'file' => $errfile,
+                'line' => $errline
+            ]
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    });
+}
 /**
  * OTLP Trace Dashboard — webhookviewer.php
  * Read-only UI for the traces table.
