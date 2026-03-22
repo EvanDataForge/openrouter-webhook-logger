@@ -288,8 +288,9 @@ function action_spans(PDO $pdo): void
     // PHP-level hide filtering + pagination when hide is active
     if ($hide) {
         $spans = array_values(array_filter($spans, function ($s) use ($hide) {
-            if (in_array('cron', $hide)      && $s['cron_name'] !== null) return false;
-            if (in_array('heartbeat', $hide) && $s['heartbeat'])          return false;
+            // Defensive: Existenz prüfen, bevor auf Felder zugegriffen wird
+            if (in_array('cron', $hide) && (isset($s['cron_name']) && $s['cron_name'] !== null)) return false;
+            if (in_array('heartbeat', $hide) && (isset($s['heartbeat']) && $s['heartbeat'])) return false;
             return true;
         }));
         $total  = count($spans);
