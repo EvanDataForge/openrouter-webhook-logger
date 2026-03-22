@@ -148,6 +148,45 @@ function parse_completion_field(?string $json): array
     ];
 }
 
+function ensure_utf8(?string $text): string
+{
+    if (!is_string($text) || $text === '') {
+        return '';
+    }
+    if (preg_match('//u', $text) === 1) {
+        return $text;
+    }
+    if (function_exists('iconv')) {
+        $clean = iconv('UTF-8', 'UTF-8//IGNORE', $text);
+        if (is_string($clean)) {
+            return $clean;
+        }
+    }
+    return '';
+}
+
+function safe_preg_replace(string $pattern, string $replacement, ?string $subject): string
+{
+    $subject = ensure_utf8($subject);
+    if ($subject === '') {
+        return '';
+    }
+    $result = preg_replace($pattern, $replacement, $subject);
+    return is_string($result) ? $result : $subject;
+}
+
+function safe_datetime_format(?string $value, string $format = 'Y-m-d H:i:s'): string
+{
+    if (!is_string($value) || trim($value) === '') {
+        return '';
+    }
+    try {
+        return (new DateTime($value))->format($format);
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
 // ---------------------------------------------------------------------------
 // DB query functions
 // ---------------------------------------------------------------------------
@@ -290,12 +329,12 @@ function action_spans(PDO $pdo): void
         foreach ($spans as &$s) {
             $s['request_model_short']  = shorten_model($s['request_model'] ?? '');
             $s['response_model_short'] = shorten_model($s['response_model'] ?? '');
-            $s['started_at_fmt'] = $s['started_at']
-                ? (new DateTime($s['started_at']))->format('Y-m-d H:i:s')
-                : '';
-            $raw = first_user_message_preview($s['gen_ai_prompt'] ?? null)
-                ?: first_user_message_preview($s['span_input'] ?? null);
-            $cleaned = preg_replace(
+            $s['started_at_fmt'] = safe_datetime_format($s['started_at'] ?? null);
+            $raw = ensure_utf8(
+                first_user_message_preview($s['gen_ai_prompt'] ?? null)
+                ?: first_user_message_preview($s['span_input'] ?? null)
+            );
+            $cleaned = safe_preg_replace(
                 '/(\[cron:)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} /i',
                 '$1',
                 $raw
@@ -409,17 +448,19 @@ function first_user_message_preview(?string $json, int $len = 100): string
             }
         }
         if ($text === '') continue;
+        $text = ensure_utf8($text);
+        if ($text === '') continue;
         if (str_starts_with($text, 'A new session was started')) continue;
         // Strip "X (untrusted metadata):\n```json\n...\n```\n" blocks (multiline)
-        $text = preg_replace('/\S[^\n]*\(untrusted metadata\):\s*\n```json\n.*?```\s*\n*/si', '', $text);
+        $text = safe_preg_replace('/\S[^\n]*\(untrusted metadata\):\s*\n```json\n.*?```\s*\n*/si', '', $text);
         // Strip any remaining single-line "X (untrusted metadata):" prefixes
-        $text = preg_replace('/\S[^\n]*\(untrusted metadata\):?\s*/i', '', $text);
+        $text = safe_preg_replace('/\S[^\n]*\(untrusted metadata\):?\s*/i', '', $text);
         // Strip entire "System: [timestamp] ..." lines
-        $text = preg_replace('/^System:\s*\[.*?\][^\n]*\n*/mi', '', $text);
+        $text = safe_preg_replace('/^System:\s*\[.*?\][^\n]*\n*/mi', '', $text);
         $text = trim($text);
         if ($text !== '') $last = $text;
     }
-    return mb_substr($last, 0, $len);
+    return mb_substr(ensure_utf8($last), 0, $len);
 }
 
 function completion_preview(?string $json, int $len = 100): string
@@ -429,11 +470,11 @@ function completion_preview(?string $json, int $len = 100): string
     if (!is_array($decoded)) return '';
     $text = $decoded['completion'] ?? null;
     if ($text === null) return '';
-    if (is_string($text)) return mb_substr(trim($text), 0, $len);
+    if (is_string($text)) return mb_substr(trim(ensure_utf8($text)), 0, $len);
     if (is_array($text)) {
         foreach ($text as $part) {
-            if (is_string($part)) return mb_substr(trim($part), 0, $len);
-            if (($part['type'] ?? '') === 'text') return mb_substr(trim($part['text'] ?? ''), 0, $len);
+            if (is_string($part)) return mb_substr(trim(ensure_utf8($part)), 0, $len);
+            if (($part['type'] ?? '') === 'text') return mb_substr(trim(ensure_utf8($part['text'] ?? '')), 0, $len);
         }
     }
     return '';
