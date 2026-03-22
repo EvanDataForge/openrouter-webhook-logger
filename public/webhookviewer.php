@@ -250,57 +250,70 @@ function action_spans(PDO $pdo): void
         $opts['fetch_all'] = true;
     }
 
-    $spans = db_get_spans($pdo, $opts);
+    try {
+        $spans = db_get_spans($pdo, $opts);
 
-    // Process all spans (model shortening, prompt preview, type detection)
-    foreach ($spans as &$s) {
-        $s['request_model_short']  = shorten_model($s['request_model'] ?? '');
-        $s['response_model_short'] = shorten_model($s['response_model'] ?? '');
-        $s['started_at_fmt'] = $s['started_at']
-            ? (new DateTime($s['started_at']))->format('Y-m-d H:i:s')
-            : '';
-        $raw = first_user_message_preview($s['gen_ai_prompt'] ?? null)
-            ?: first_user_message_preview($s['span_input'] ?? null);
-        $cleaned = preg_replace(
-            '/(\[cron:)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} /i',
-            '$1',
-            $raw
-        );
-        if (preg_match('/^\[cron:([^\]]+)\]/', $cleaned, $m)) {
-            $s['cron_name']      = trim($m[1]);
-            $s['heartbeat']      = false;
-            $s['prompt_preview'] = '';
-        } elseif (str_starts_with($cleaned, 'Read HEARTBEAT.md if it exists')) {
-            $s['cron_name']      = null;
-            $s['heartbeat']      = true;
-            $s['prompt_preview'] = '';
-        } else {
-            $s['cron_name']      = null;
-            $s['heartbeat']      = false;
-            $s['prompt_preview'] = $cleaned;
+        // Process all spans (model shortening, prompt preview, type detection)
+        foreach ($spans as &$s) {
+            $s['request_model_short']  = shorten_model($s['request_model'] ?? '');
+            $s['response_model_short'] = shorten_model($s['response_model'] ?? '');
+            $s['started_at_fmt'] = $s['started_at']
+                ? (new DateTime($s['started_at']))->format('Y-m-d H:i:s')
+                : '';
+            $raw = first_user_message_preview($s['gen_ai_prompt'] ?? null)
+                ?: first_user_message_preview($s['span_input'] ?? null);
+            $cleaned = preg_replace(
+                '/(\[cron:)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} /i',
+                '$1',
+                $raw
+            );
+            if (preg_match('/^\[cron:([^\]]+)\]/', $cleaned, $m)) {
+                $s['cron_name']      = trim($m[1]);
+                $s['heartbeat']      = false;
+                $s['prompt_preview'] = '';
+            } elseif (str_starts_with($cleaned, 'Read HEARTBEAT.md if it exists')) {
+                $s['cron_name']      = null;
+                $s['heartbeat']      = true;
+                $s['prompt_preview'] = '';
+            } else {
+                $s['cron_name']      = null;
+                $s['heartbeat']      = false;
+                $s['prompt_preview'] = $cleaned;
+            }
+            $s['response_preview'] = completion_preview($s['gen_ai_completion'] ?? null)
+                ?: completion_preview($s['span_output'] ?? null);
+            unset($s['gen_ai_prompt'], $s['span_input'], $s['gen_ai_completion'], $s['span_output']);
         }
-        $s['response_preview'] = completion_preview($s['gen_ai_completion'] ?? null)
-            ?: completion_preview($s['span_output'] ?? null);
-        unset($s['gen_ai_prompt'], $s['span_input'], $s['gen_ai_completion'], $s['span_output']);
-    }
-    unset($s);
+        unset($s);
 
-    // PHP-level hide filtering + pagination when hide is active
-    if ($hide) {
-        $spans = array_values(array_filter($spans, function ($s) use ($hide) {
-            // Defensive: Existenz prüfen, bevor auf Felder zugegriffen wird
-            if (in_array('cron', $hide) && (isset($s['cron_name']) && $s['cron_name'] !== null)) return false;
-            if (in_array('heartbeat', $hide) && (isset($s['heartbeat']) && $s['heartbeat'])) return false;
-            return true;
-        }));
-        $total  = count($spans);
-        $offset = ($page - 1) * $per;
-        $spans  = array_slice($spans, $offset, $per);
-    } else {
-        $total = db_count_spans($pdo, $opts);
-    }
+        // PHP-level hide filtering + pagination when hide is active
+        if ($hide) {
+            $spans = array_values(array_filter($spans, function ($s) use ($hide) {
+                // Defensive: Existenz prüfen, bevor auf Felder zugegriffen wird
+                if (in_array('cron', $hide) && (isset($s['cron_name']) && $s['cron_name'] !== null)) return false;
+                if (in_array('heartbeat', $hide) && (isset($s['heartbeat']) && $s['heartbeat'])) return false;
+                return true;
+            }));
+            $total  = count($spans);
+            $offset = ($page - 1) * $per;
+            $spans  = array_slice($spans, $offset, $per);
+        } else {
+            $total = db_count_spans($pdo, $opts);
+        }
 
-    json_out(['spans' => $spans, 'total' => $total, 'page' => $page]);
+        json_out(['spans' => $spans, 'total' => $total, 'page' => $page]);
+    } catch (Throwable $e) {
+        json_out([
+            'error' => 'Exception in action_spans',
+            'debug' => [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ],
+            'opts' => $opts,
+        ], 500);
+    }
 }
 
 function action_detail(PDO $pdo): void
