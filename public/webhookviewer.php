@@ -483,7 +483,7 @@ header {
 }
 header h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
 header .header-right { display: flex; align-items: center; gap: 12px; }
-.btn-logout {
+.header-btn {
     background: transparent;
     border: 1px solid rgba(255,255,255,0.3);
     color: #fff;
@@ -491,8 +491,25 @@ header .header-right { display: flex; align-items: center; gap: 12px; }
     border-radius: 5px;
     cursor: pointer;
     font-size: 13px;
+    transition: background 0.12s, opacity 0.12s;
 }
-.btn-logout:hover { background: rgba(255,255,255,0.1); }
+.header-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+.header-btn:disabled { opacity: 0.65; cursor: wait; }
+.btn-refresh.is-loading::before {
+    content: '';
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    margin-right: 7px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: -1px;
+}
+.btn-logout {
+    background: transparent;
+}
 
 /* ---------- Stats bar ---------- */
 #stats-bar {
@@ -946,10 +963,11 @@ details.collapsible > .detail-content {
 <header>
     <h1>OpenRouter Trace Dashboard</h1>
     <div class="header-right">
+        <button type="button" class="header-btn btn-refresh" id="refresh-dashboard">Refresh</button>
         <form method="POST" style="margin:0">
             <input type="hidden" name="_viewer_action" value="logout">
             <input type="hidden" name="csrf" value="<?= htmlspecialchars(csrf_token()) ?>">
-            <button type="submit" class="btn-logout">Sign out</button>
+            <button type="submit" class="header-btn btn-logout">Sign out</button>
         </form>
     </div>
 </header>
@@ -1097,6 +1115,27 @@ const state = {
     activeTab: 'prompt',
     detailCache: {},
 };
+
+function setRefreshBusy(isBusy) {
+    const button = document.getElementById('refresh-dashboard');
+    if (!button) return;
+    button.disabled = isBusy;
+    button.classList.toggle('is-loading', isBusy);
+    button.textContent = isBusy ? 'Refreshing…' : 'Refresh';
+}
+
+async function refreshDashboard() {
+    setRefreshBusy(true);
+    state.detailCache = {};
+    try {
+        await Promise.all([loadStats(), loadSpans()]);
+        if (state.activeId != null) {
+            await openDetail(state.activeId);
+        }
+    } finally {
+        setRefreshBusy(false);
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Stats
@@ -1256,6 +1295,10 @@ document.querySelectorAll('.hide-toggle').forEach(btn => {
         state.page = 1;
         loadSpans();
     });
+});
+
+document.getElementById('refresh-dashboard').addEventListener('click', () => {
+    refreshDashboard();
 });
 
 // ---------------------------------------------------------------------------
@@ -1503,8 +1546,7 @@ document.addEventListener('keydown', function (e) {
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
-loadStats();
-loadSpans();
+refreshDashboard();
 
 })();
 </script>
