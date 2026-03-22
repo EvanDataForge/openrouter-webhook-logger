@@ -187,6 +187,50 @@ function safe_datetime_format(?string $value, string $format = 'Y-m-d H:i:s'): s
     }
 }
 
+function enrich_span(array $s): array
+{
+    $s['request_model_short']  = shorten_model($s['request_model'] ?? '');
+    $s['response_model_short'] = shorten_model($s['response_model'] ?? '');
+    $s['started_at_fmt'] = safe_datetime_format($s['started_at'] ?? null);
+    $raw = ensure_utf8(
+        first_user_message_preview($s['gen_ai_prompt'] ?? null)
+        ?: first_user_message_preview($s['span_input'] ?? null)
+    );
+    $cleaned = safe_preg_replace(
+        '/(\[cron:)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} /i',
+        '$1',
+        $raw
+    );
+    if (preg_match('/^\[cron:([^\]]+)\]/', $cleaned, $m)) {
+        $s['cron_name']      = trim($m[1]);
+        $s['heartbeat']      = false;
+        $s['prompt_preview'] = '';
+    } elseif (str_starts_with($cleaned, 'Read HEARTBEAT.md if it exists')) {
+        $s['cron_name']      = null;
+        $s['heartbeat']      = true;
+        $s['prompt_preview'] = '';
+    } else {
+        $s['cron_name']      = null;
+        $s['heartbeat']      = false;
+        $s['prompt_preview'] = $cleaned;
+    }
+    $s['response_preview'] = completion_preview($s['gen_ai_completion'] ?? null)
+        ?: completion_preview($s['span_output'] ?? null);
+    unset($s['gen_ai_prompt'], $s['span_input'], $s['gen_ai_completion'], $s['span_output']);
+    return $s;
+}
+
+function span_visible_for_hide(array $s, array $hide): bool
+{
+    if (in_array('cron', $hide, true) && isset($s['cron_name']) && $s['cron_name'] !== null) {
+        return false;
+    }
+    if (in_array('heartbeat', $hide, true) && !empty($s['heartbeat'])) {
+        return false;
+    }
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // DB query functions
 // ---------------------------------------------------------------------------
@@ -224,13 +268,12 @@ function db_get_spans(PDO $pdo, array $opts): array
     $col    = in_array($opts['sort'] ?? '', $ALLOWED_SORT_COLS, true) ? $opts['sort'] : 'started_at';
     $dir    = ($opts['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
     $page   = max(1, (int)($opts['page'] ?? 1));
-    $per    = 50;
-    $offset = ($page - 1) * $per;
-    $fetch_all = !empty($opts['fetch_all']);
+    $per    = max(1, (int)($opts['per'] ?? 50));
+    $offset = isset($opts['offset']) ? max(0, (int)$opts['offset']) : (($page - 1) * $per);
 
     [$where, $params] = build_where($opts);
 
-    $limit_clause = $fetch_all ? '' : "LIMIT $per OFFSET $offset";
+    $limit_clause = "LIMIT $per OFFSET $offset";
     $sql = "SELECT id, started_at, request_model, response_model,
                    duration_ms, input_tokens, output_tokens, cached_tokens,
                    total_cost_usd, finish_reason, finish_reasons, span_type,
@@ -316,60 +359,39 @@ function action_spans(PDO $pdo): void
     $per  = 50;
     $page = max(1, (int)($opts['page'] ?? 1));
 
-    // When hide filters are active, fetch all rows first, filter in PHP,
-    // then paginate — so SQL LIMIT doesn't cut off rows before filtering
-    if ($hide) {
-        $opts['fetch_all'] = true;
-    }
-
     try {
-        $spans = db_get_spans($pdo, $opts);
-
-        // Process all spans (model shortening, prompt preview, type detection)
-        foreach ($spans as &$s) {
-            $s['request_model_short']  = shorten_model($s['request_model'] ?? '');
-            $s['response_model_short'] = shorten_model($s['response_model'] ?? '');
-            $s['started_at_fmt'] = safe_datetime_format($s['started_at'] ?? null);
-            $raw = ensure_utf8(
-                first_user_message_preview($s['gen_ai_prompt'] ?? null)
-                ?: first_user_message_preview($s['span_input'] ?? null)
-            );
-            $cleaned = safe_preg_replace(
-                '/(\[cron:)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} /i',
-                '$1',
-                $raw
-            );
-            if (preg_match('/^\[cron:([^\]]+)\]/', $cleaned, $m)) {
-                $s['cron_name']      = trim($m[1]);
-                $s['heartbeat']      = false;
-                $s['prompt_preview'] = '';
-            } elseif (str_starts_with($cleaned, 'Read HEARTBEAT.md if it exists')) {
-                $s['cron_name']      = null;
-                $s['heartbeat']      = true;
-                $s['prompt_preview'] = '';
-            } else {
-                $s['cron_name']      = null;
-                $s['heartbeat']      = false;
-                $s['prompt_preview'] = $cleaned;
-            }
-            $s['response_preview'] = completion_preview($s['gen_ai_completion'] ?? null)
-                ?: completion_preview($s['span_output'] ?? null);
-            unset($s['gen_ai_prompt'], $s['span_input'], $s['gen_ai_completion'], $s['span_output']);
-        }
-        unset($s);
-
-        // PHP-level hide filtering + pagination when hide is active
         if ($hide) {
-            $spans = array_values(array_filter($spans, function ($s) use ($hide) {
-                // Defensive: Existenz prüfen, bevor auf Felder zugegriffen wird
-                if (in_array('cron', $hide) && (isset($s['cron_name']) && $s['cron_name'] !== null)) return false;
-                if (in_array('heartbeat', $hide) && (isset($s['heartbeat']) && $s['heartbeat'])) return false;
-                return true;
-            }));
-            $total  = count($spans);
-            $offset = ($page - 1) * $per;
-            $spans  = array_slice($spans, $offset, $per);
+            $batchSize = 200;
+            $offset = 0;
+            $matched = 0;
+            $pageStart = ($page - 1) * $per;
+            $pageEnd = $pageStart + $per;
+            $spans = [];
+
+            do {
+                $batch = db_get_spans($pdo, $opts + [
+                    'per' => $batchSize,
+                    'offset' => $offset,
+                ]);
+                $batchCount = count($batch);
+
+                foreach ($batch as $row) {
+                    $row = enrich_span($row);
+                    if (!span_visible_for_hide($row, $hide)) {
+                        continue;
+                    }
+                    if ($matched >= $pageStart && $matched < $pageEnd) {
+                        $spans[] = $row;
+                    }
+                    $matched++;
+                }
+
+                $offset += $batchCount;
+            } while ($batchCount === $batchSize);
+
+            $total = $matched;
         } else {
+            $spans = array_map('enrich_span', db_get_spans($pdo, $opts));
             $total = db_count_spans($pdo, $opts);
         }
 
