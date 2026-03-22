@@ -359,20 +359,25 @@ function action_spans(PDO $pdo): void
     $hide = array_filter(explode(',', $opts['hide']));
     $per  = 50;
     $page = max(1, (int)($opts['page'] ?? 1));
+    $scanOffset = max(0, (int)($_GET['scan_offset'] ?? 0));
 
     try {
         if ($hide) {
             $batchSize = min(200, $hideScanLimit);
-            $offset = 0;
-            $matched = 0;
-            $pageStart = ($page - 1) * $per;
-            $pageEnd = $pageStart + $per;
             $spans = [];
             $scanned = 0;
+            $offset = $scanOffset;
+            $hasMore = false;
+            $filledPage = false;
+            $batchCount = 0;
 
             do {
+                $requestSize = min($batchSize, $hideScanLimit - $scanned);
+                if ($requestSize <= 0) {
+                    break;
+                }
                 $batch = db_get_spans($pdo, $opts + [
-                    'per' => min($batchSize, $hideScanLimit - $scanned),
+                    'per' => $requestSize,
                     'offset' => $offset,
                 ]);
                 $batchCount = count($batch);
@@ -385,23 +390,32 @@ function action_spans(PDO $pdo): void
                     if (!span_visible_for_hide($row, $hide)) {
                         continue;
                     }
-                    if ($matched >= $pageStart && $matched < $pageEnd) {
-                        $spans[] = $row;
+                    $spans[] = $row;
+                    if (count($spans) >= $per) {
+                        $filledPage = true;
+                        break;
                     }
-                    $matched++;
                 }
 
                 $scanned += $batchCount;
                 $offset += $batchCount;
-            } while ($batchCount === $batchSize && $scanned < $hideScanLimit);
+            } while (!$filledPage && $batchCount === $requestSize && $scanned < $hideScanLimit);
 
-            $total = $matched;
+            $hasMore = $filledPage || ($batchCount > 0 && $batchCount === $requestSize);
+            json_out([
+                'spans' => $spans,
+                'total' => null,
+                'page' => 1,
+                'filtered' => true,
+                'next_offset' => $offset,
+                'has_more' => $hasMore,
+                'scan_truncated' => $scanned >= $hideScanLimit,
+            ]);
         } else {
             $spans = array_map('enrich_span', db_get_spans($pdo, $opts));
             $total = db_count_spans($pdo, $opts);
+            json_out(['spans' => $spans, 'total' => $total, 'page' => $page, 'filtered' => false]);
         }
-
-        json_out(['spans' => $spans, 'total' => $total, 'page' => $page]);
     } catch (Throwable $e) {
         json_out([
             'error' => 'Exception in action_spans',
@@ -1390,6 +1404,11 @@ const state = {
     search: '',
     hide: new Set(),
     total: 0,
+    filteredMode: false,
+    filteredHasMore: false,
+    filteredNextOffset: 0,
+    filteredLoaded: 0,
+    filteredTruncated: false,
     activeId: null,
     activeTab: 'prompt',
     detailCache: {},
@@ -1436,9 +1455,20 @@ async function loadStats() {
 // ---------------------------------------------------------------------------
 // Spans table
 // ---------------------------------------------------------------------------
-async function loadSpans() {
+function resetFilteredState() {
+    state.filteredMode = false;
+    state.filteredHasMore = false;
+    state.filteredNextOffset = 0;
+    state.filteredLoaded = 0;
+    state.filteredTruncated = false;
+}
+
+async function loadSpans(options = {}) {
+    const append = !!options.append;
     const body = document.getElementById('spans-body');
-    body.innerHTML = '<tr class="state-row"><td colspan="11"><span class="spinner"></span>Loading…</td></tr>';
+    if (!append) {
+        body.innerHTML = '<tr class="state-row"><td colspan="11"><span class="spinner"></span>Loading…</td></tr>';
+    }
 
     const params = new URLSearchParams({
         sort: state.sort,
@@ -1447,23 +1477,46 @@ async function loadSpans() {
         search: state.search,
         hide: [...state.hide].join(','),
     });
+    if (state.hide.size > 0) {
+        params.set('scan_offset', append ? state.filteredNextOffset : 0);
+    }
 
     let data;
     try {
         const r = await fetch(apiUrl('spans', Object.fromEntries(params.entries())));
         data = await r.json();
     } catch (e) {
-        body.innerHTML = '<tr class="state-row"><td colspan="11">Failed to load data.</td></tr>';
+        if (!append) {
+            body.innerHTML = '<tr class="state-row"><td colspan="11">Failed to load data.</td></tr>';
+        }
+        renderPagination();
         return;
     }
 
+    state.filteredMode = !!data.filtered;
+    state.filteredHasMore = !!data.has_more;
+    state.filteredNextOffset = Number(data.next_offset || 0);
+    state.filteredTruncated = !!data.scan_truncated;
     state.total = data.total || 0;
     const spans = data.spans || [];
     const lbl = document.getElementById('total-label');
-    lbl.textContent = state.total.toLocaleString() + ' span' + (state.total !== 1 ? 's' : '');
+    if (state.filteredMode) {
+        state.filteredLoaded = append ? state.filteredLoaded + spans.length : spans.length;
+        let text = state.filteredLoaded.toLocaleString() + ' filtered span' + (state.filteredLoaded !== 1 ? 's' : '');
+        if (state.filteredHasMore) text += ' loaded';
+        if (state.filteredTruncated) text += ' (scan limit reached)';
+        lbl.textContent = text;
+    } else {
+        state.filteredLoaded = 0;
+        lbl.textContent = state.total.toLocaleString() + ' span' + (state.total !== 1 ? 's' : '');
+    }
 
-    if (spans.length === 0) {
+    if (spans.length === 0 && !append) {
         body.innerHTML = '<tr class="state-row"><td colspan="11">No spans found.</td></tr>';
+        renderPagination();
+        return;
+    }
+    if (spans.length === 0 && append) {
         renderPagination();
         return;
     }
@@ -1490,7 +1543,11 @@ async function loadSpans() {
             <td class="td-right td-mono">${fmtCost(s.total_cost_usd)}</td>
         </tr>`;
     });
-    body.innerHTML = rows.join('');
+    if (append) {
+        body.insertAdjacentHTML('beforeend', rows.join(''));
+    } else {
+        body.innerHTML = rows.join('');
+    }
 
     // Row click → open detail
     body.querySelectorAll('tr[data-id]').forEach(tr => {
@@ -1514,6 +1571,7 @@ document.querySelectorAll('thead th[data-col]').forEach(th => {
             state.dir = 'DESC';
         }
         state.page = 1;
+        resetFilteredState();
         loadSpans();
     });
 });
@@ -1531,11 +1589,32 @@ function updateSortHeaders() {
 // Pagination
 // ---------------------------------------------------------------------------
 function renderPagination() {
+    const el = document.getElementById('pagination');
+    if (state.filteredMode) {
+        if (!state.filteredHasMore) {
+            el.innerHTML = state.filteredLoaded > 0
+                ? '<span class="page-ellipsis">End of filtered results</span>'
+                : '';
+            return;
+        }
+        const disabled = state.filteredTruncated ? ' disabled' : '';
+        const label = state.filteredTruncated ? 'Scan limit reached' : 'Load more';
+        el.innerHTML = `<button class="page-btn" id="load-more-filtered"${disabled}>${label}</button>`;
+        const button = document.getElementById('load-more-filtered');
+        if (button && !state.filteredTruncated) {
+            button.addEventListener('click', async () => {
+                button.disabled = true;
+                button.textContent = 'Loading…';
+                await loadSpans({ append: true });
+            });
+        }
+        return;
+    }
+
     const per    = 50;
     const total  = state.total;
     const pages  = Math.max(1, Math.ceil(total / per));
     const cur    = state.page;
-    const el     = document.getElementById('pagination');
 
     if (pages <= 1) { el.innerHTML = ''; return; }
 
@@ -1589,6 +1668,7 @@ document.getElementById('search-filter').addEventListener('input', function () {
     filterTimer = setTimeout(() => {
         state.search = this.value.trim();
         state.page   = 1;
+        resetFilteredState();
         loadSpans();
     }, 350);
 });
@@ -1604,6 +1684,7 @@ document.querySelectorAll('.hide-toggle').forEach(btn => {
             this.classList.add('active');
         }
         state.page = 1;
+        resetFilteredState();
         loadSpans();
     });
 });
