@@ -556,24 +556,30 @@ header .header-right { display: flex; align-items: center; gap: 12px; }
     background: transparent;
 }
 
-/* ---------- Stats bar ---------- */
-#stats-bar {
+/* ---------- Stats footer ---------- */
+#stats-footer {
     display: flex;
-    gap: 12px;
-    padding: 14px 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    padding: 4px 20px;
+    background: #fbfcfd;
+    border-top: 1px solid var(--border);
     flex-shrink: 0;
+    align-items: center;
+    overflow-x: auto;
 }
 .stat-card {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 16px;
-    min-width: 140px;
+    background: transparent;
+    border: 1px solid rgba(224,227,232,0.55);
+    border-radius: 999px;
+    padding: 2px 7px;
+    min-width: 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    white-space: nowrap;
 }
-.stat-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-.stat-card .value { font-size: 20px; font-weight: 600; margin-top: 2px; color: var(--text); }
+.stat-card .label { font-size: 8px; color: #8a94a6; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1; }
+.stat-card .value { font-size: 11px; font-weight: 500; color: #4b5563; line-height: 1.1; }
 
 /* ---------- Toolbar ---------- */
 #toolbar {
@@ -1053,25 +1059,6 @@ details.collapsible > .detail-content {
     </div>
 </header>
 
-<div id="stats-bar">
-    <div class="stat-card">
-        <div class="label">Total spans</div>
-        <div class="value" id="stat-spans">—</div>
-    </div>
-    <div class="stat-card">
-        <div class="label">Total cost</div>
-        <div class="value" id="stat-cost">—</div>
-    </div>
-    <div class="stat-card">
-        <div class="label">Avg duration</div>
-        <div class="value" id="stat-dur">—</div>
-    </div>
-    <div class="stat-card">
-        <div class="label">Total tokens</div>
-        <div class="value" id="stat-tokens">—</div>
-    </div>
-</div>
-
 <div id="toolbar">
     <input type="text" id="search-filter" placeholder="Search…" autocomplete="off">
     <span class="hide-label">Hide:</span>
@@ -1128,6 +1115,25 @@ details.collapsible > .detail-content {
         </div>
     </div>
 </div><!-- /main-area -->
+
+<div id="stats-footer">
+    <div class="stat-card">
+        <div class="label">Total spans</div>
+        <div class="value" id="stat-spans">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Total cost</div>
+        <div class="value" id="stat-cost">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Avg duration</div>
+        <div class="value" id="stat-dur">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Total tokens</div>
+        <div class="value" id="stat-tokens">—</div>
+    </div>
+</div>
 
 <script>
 (function () {
@@ -1219,6 +1225,12 @@ function apiUrl(action, params = {}) {
     return (API_BASE ? API_BASE : '') + '?' + query.toString();
 }
 
+function renderEscapedTextWithBreaks(value) {
+    return escapeHtml(value)
+        .replace(/\\n/g, '<br/>')
+        .replace(/\n/g, '<br/>');
+}
+
 function renderJsonBlock(raw) {
     if (!raw) return '';
 
@@ -1226,7 +1238,7 @@ function renderJsonBlock(raw) {
     try {
         formatted = JSON.stringify(JSON.parse(raw), null, 2);
     } catch (e) {
-        return `<pre class="json-view">${escapeHtml(raw)}</pre>`;
+        return `<pre class="json-view">${renderEscapedTextWithBreaks(raw)}</pre>`;
     }
 
     const highlighted = escapeHtml(formatted).replace(
@@ -1242,7 +1254,7 @@ function renderJsonBlock(raw) {
         }
     );
 
-    return `<pre class="json-view">${highlighted}</pre>`;
+    return `<pre class="json-view">${highlighted.replace(/\\n/g, '<br/>')}</pre>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1623,10 +1635,10 @@ function renderCompletionTab(data) {
         html += renderMessage({ role: 'assistant', content: parsed.completion });
     }
     if (parsed.reasoning) {
-        html += `<details class="collapsible" data-persist-key="completion-reasoning"><summary>Reasoning</summary><div class="detail-content">${escapeHtml(parsed.reasoning)}</div></details>`;
+        html += `<details class="collapsible" data-persist-key="completion-reasoning"><summary>Reasoning</summary><div class="detail-content">${renderEscapedTextWithBreaks(parsed.reasoning)}</div></details>`;
     }
     if (parsed.tools && parsed.tools.length > 0) {
-        html += `<details class="collapsible" data-persist-key="completion-tools"><summary>Tool calls (${parsed.tools.length})</summary><div class="detail-content">${escapeHtml(JSON.stringify(parsed.tools, null, 2))}</div></details>`;
+        html += `<details class="collapsible" data-persist-key="completion-tools"><summary>Tool calls (${parsed.tools.length})</summary><div class="detail-content">${renderJsonBlock(JSON.stringify(parsed.tools, null, 2))}</div></details>`;
     }
     return html;
 }
@@ -1662,12 +1674,12 @@ function renderMessage(msg) {
     if (content == null) {
         inner = '<em style="color:var(--muted)">(empty)</em>';
     } else if (typeof content === 'string') {
-        inner = escapeHtml(content);
+        inner = renderEscapedTextWithBreaks(content);
     } else if (Array.isArray(content)) {
         inner = content.map(part => {
-            if (typeof part === 'string') return escapeHtml(part);
+            if (typeof part === 'string') return renderEscapedTextWithBreaks(part);
             if (!part || typeof part !== 'object') return '';
-            if (part.type === 'text') return escapeHtml(part.text || '');
+            if (part.type === 'text') return renderEscapedTextWithBreaks(part.text || '');
             // tool_use / tool_result → collapsible
             const label = part.type === 'tool_use'
                 ? `Tool use: ${escapeHtml(part.name || '')}`
@@ -1675,12 +1687,12 @@ function renderMessage(msg) {
                     ? `Tool result: ${escapeHtml(part.tool_use_id || '')}`
                     : escapeHtml(part.type || 'part');
             const body = JSON.stringify(part, null, 2);
-            return `<details class="collapsible"><summary>${label}</summary><div class="detail-content">${escapeHtml(body)}</div></details>`;
+            return `<details class="collapsible"><summary>${label}</summary><div class="detail-content">${renderJsonBlock(body)}</div></details>`;
         }).join('');
     } else if (typeof content === 'object') {
-        inner = `<pre style="margin:0;font-size:12px;white-space:pre-wrap">${escapeHtml(JSON.stringify(content, null, 2))}</pre>`;
+        inner = renderJsonBlock(JSON.stringify(content, null, 2));
     } else {
-        inner = escapeHtml(String(content));
+        inner = renderEscapedTextWithBreaks(String(content));
     }
 
     return `<div>

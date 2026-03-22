@@ -26,7 +26,7 @@
       "operation_name": "chat",
       "trace_id": "trace-mock-101",
       "span_id": "span-mock-101",
-      "prompt_preview": "Summarize the new webhook dashboard requirements and suggest a rollout plan.",
+      "prompt_preview": "Summarize the new webhook dashboard requirements,\nthen suggest a rollout plan.",
       "response_preview": "Here is a staged implementation plan for the dashboard, including auth, filters, and detail drilldown.",
       "cron_name": null,
       "heartbeat": false,
@@ -168,7 +168,7 @@
         "reasoning": null,
         "tools": []
       },
-      "trace_input_raw": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize the new webhook dashboard requirements and suggest a rollout plan.\"}]}",
+      "trace_input_raw": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize the new webhook dashboard requirements.\nThen suggest a rollout plan.\"}]}",
       "trace_output_raw": "{\"completion\":\"Here is a staged implementation plan for the dashboard.\"}"
     },
     "102": {
