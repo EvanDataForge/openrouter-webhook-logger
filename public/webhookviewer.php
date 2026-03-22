@@ -231,48 +231,7 @@ function db_get_detail(PDO $pdo, int $id): ?array
 {
     $stmt = $pdo->prepare(
         "SELECT id, trace_id, span_id, openrouter_trace_id,
-            // Globaler Fehler- und Exception-Handler, gibt Fehler IMMER als JSON aus
-            // (so früh wie möglich)
-            set_exception_handler(function($e) {
-                http_response_code(500);
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'error' => 'Exception',
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-                exit;
-            });
-            set_error_handler(function($errno, $errstr, $errfile, $errline) {
-                http_response_code(500);
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'error' => 'Error',
-                    'errno' => $errno,
-                    'message' => $errstr,
-                    'file' => $errfile,
-                    'line' => $errline,
-                ]);
-                exit;
-            });
-            // Fehler bei fatalen Fehlern abfangen
-            register_shutdown_function(function() {
-                $error = error_get_last();
-                if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-                    http_response_code(500);
-                    header('Content-Type: application/json');
-                    echo json_encode([
-                        'error' => 'Fatal Error',
-                        'message' => $error['message'],
-                        'file' => $error['file'],
-                        'line' => $error['line'],
-                    ]);
-                    exit;
-                }
-            });
-            // ...existing code...
+                request_model, response_model, provider_name, provider_slug,
                 operation_name, span_type, finish_reason, finish_reasons, trace_name,
                 input_tokens, output_tokens, cached_tokens, reasoning_tokens,
                 audio_tokens, video_tokens, image_tokens,
