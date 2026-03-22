@@ -12,6 +12,33 @@ error_reporting(E_ALL);
 require __DIR__ . '/../src/Database.php';
 $config = require __DIR__ . '/../config/config.php';
 
+function viewer_flag_enabled($value): bool
+{
+    if (is_bool($value)) return $value;
+    $normalized = strtolower(trim((string)$value));
+    return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+}
+
+function viewer_env_or_config(string $envKey, array $config, string $configKey, string $default = ''): string
+{
+    $env = getenv($envKey);
+    if ($env !== false && $env !== '') {
+        return trim((string)$env);
+    }
+    $value = $config[$configKey] ?? $default;
+    return is_string($value) ? trim($value) : $default;
+}
+
+$VIEWER_AUTH_DISABLED = viewer_flag_enabled(
+    getenv('VIEWER_DISABLE_AUTH') !== false
+        ? getenv('VIEWER_DISABLE_AUTH')
+        : ($config['viewer_disable_auth'] ?? false)
+);
+$VIEWER_API_BASE = rtrim(
+    viewer_env_or_config('VIEWER_API_BASE', $config, 'viewer_api_base'),
+    '/'
+);
+
 session_set_cookie_params([
     'lifetime' => 0,
     'path'     => '/',
@@ -27,6 +54,10 @@ session_start();
 
 function viewer_check_auth(): bool
 {
+    global $VIEWER_AUTH_DISABLED;
+    if ($VIEWER_AUTH_DISABLED) {
+        return true;
+    }
     return !empty($_SESSION['viewer_authed']);
 }
 
@@ -375,7 +406,7 @@ function shorten_model(string $model): string
 // Security headers (applied to all responses)
 // ---------------------------------------------------------------------------
 
-header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:*");
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
@@ -435,6 +466,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['_viewer_action'])) {
 csrf_token();
 
 $isAuthed = viewer_check_auth();
+$isMockMode = $VIEWER_API_BASE !== '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -483,6 +515,19 @@ header {
 }
 header h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
 header .header-right { display: flex; align-items: center; gap: 12px; }
+.mode-badge {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.92);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
 .header-btn {
     background: transparent;
     border: 1px solid rgba(255,255,255,0.3);
@@ -819,6 +864,28 @@ tbody td { padding: 7px 10px; vertical-align: middle; }
     letter-spacing: 0.05em;
     color: var(--muted);
     margin-bottom: 4px;
+    border-radius: 6px;
+    transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+.msg-role-label.is-flashing {
+    animation: msg-label-flash 0.8s ease;
+}
+@keyframes msg-label-flash {
+    0% {
+        color: var(--accent);
+        background: rgba(37, 99, 235, 0.16);
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.22);
+    }
+    45% {
+        color: var(--accent);
+        background: rgba(37, 99, 235, 0.22);
+        box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.08);
+    }
+    100% {
+        color: var(--muted);
+        background: transparent;
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+    }
 }
 .detail-section-title {
     font-size: 11px;
@@ -853,6 +920,17 @@ details.collapsible > .detail-content {
     max-height: 300px;
     overflow-y: auto;
 }
+.json-view {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #0f172a;
+}
+.json-key { color: #9f1239; }
+.json-string { color: #166534; }
+.json-number { color: #1d4ed8; }
+.json-boolean { color: #7c3aed; font-weight: 600; }
+.json-null { color: #b45309; font-style: italic; }
 
 /* ---------- Login form ---------- */
 .login-wrap {
@@ -963,6 +1041,9 @@ details.collapsible > .detail-content {
 <header>
     <h1>OpenRouter Trace Dashboard</h1>
     <div class="header-right">
+        <?php if ($isMockMode): ?>
+        <span class="mode-badge">Mock API</span>
+        <?php endif; ?>
         <button type="button" class="header-btn btn-refresh" id="refresh-dashboard">Refresh</button>
         <form method="POST" style="margin:0">
             <input type="hidden" name="_viewer_action" value="logout">
@@ -1005,16 +1086,16 @@ details.collapsible > .detail-content {
             <thead>
                 <tr>
                     <th data-col="started_at"    class="sort-desc">Started</th>
+                    <th>Prompt</th>
+                    <th>Result</th>
+                    <th data-col="finish_reason">Finish</th>
                     <th data-col="duration_ms">Duration</th>
                     <th data-col="request_model">Req Model</th>
                     <th data-col="response_model">Resp Model</th>
-                    <th>Prompt</th>
-                    <th>Result</th>
                     <th data-col="input_tokens"  class="td-right">In Tok</th>
                     <th data-col="output_tokens" class="td-right">Out Tok</th>
                     <th data-col="cached_tokens" class="td-right">Cache</th>
                     <th data-col="total_cost_usd" class="td-right">Cost</th>
-                    <th data-col="finish_reason">Finish</th>
                 </tr>
             </thead>
             <tbody id="spans-body">
@@ -1055,6 +1136,8 @@ details.collapsible > .detail-content {
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
+const API_BASE = <?= json_encode($VIEWER_API_BASE, JSON_UNESCAPED_SLASHES) ?>;
+
 function escapeHtml(str) {
     if (str == null) return '';
     return String(str)
@@ -1082,6 +1165,36 @@ function fmtDur(ms) {
     return (n / 1000).toFixed(2) + ' s';
 }
 
+function fmtStartedAtLocal(value) {
+    if (!value) return '—';
+
+    const match = String(value).trim().match(
+        /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/
+    );
+    if (!match) return String(value);
+
+    const [, year, month, day, hour, minute, second, ms = '0'] = match;
+    const utcDate = new Date(Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second),
+        Number(ms.padEnd(3, '0'))
+    ));
+
+    return utcDate.toLocaleString([], {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    });
+}
+
 function durClass(ms) {
     const n = parseInt(ms);
     if (isNaN(n)) return '';
@@ -1101,6 +1214,37 @@ function trunc(s, n) {
     return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
+function apiUrl(action, params = {}) {
+    const query = new URLSearchParams({ _action: action, ...params });
+    return (API_BASE ? API_BASE : '') + '?' + query.toString();
+}
+
+function renderJsonBlock(raw) {
+    if (!raw) return '';
+
+    let formatted;
+    try {
+        formatted = JSON.stringify(JSON.parse(raw), null, 2);
+    } catch (e) {
+        return `<pre class="json-view">${escapeHtml(raw)}</pre>`;
+    }
+
+    const highlighted = escapeHtml(formatted).replace(
+        /(&quot;(?:\\u[\da-fA-F]{4}|\\[^u]|[^\\&]|&(?!quot;))*&quot;)(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?/g,
+        (match, quoted, isKey, keyword) => {
+            if (quoted) {
+                return `<span class="${isKey ? 'json-key' : 'json-string'}">${quoted}</span>${isKey || ''}`;
+            }
+            if (keyword) {
+                return `<span class="${keyword === 'null' ? 'json-null' : 'json-boolean'}">${keyword}</span>`;
+            }
+            return `<span class="json-number">${match}</span>`;
+        }
+    );
+
+    return `<pre class="json-view">${highlighted}</pre>`;
+}
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -1114,6 +1258,7 @@ const state = {
     activeId: null,
     activeTab: 'prompt',
     detailCache: {},
+    detailDisclosureState: {},
 };
 
 function setRefreshBusy(isBusy) {
@@ -1142,7 +1287,7 @@ async function refreshDashboard() {
 // ---------------------------------------------------------------------------
 async function loadStats() {
     try {
-        const r = await fetch('?_action=stats');
+        const r = await fetch(apiUrl('stats'));
         const d = await r.json();
         document.getElementById('stat-spans').textContent  = fmtNum(d.total_spans);
         document.getElementById('stat-cost').textContent   = fmtCost(d.total_cost);
@@ -1161,7 +1306,6 @@ async function loadSpans() {
     body.innerHTML = '<tr class="state-row"><td colspan="11"><span class="spinner"></span>Loading…</td></tr>';
 
     const params = new URLSearchParams({
-        _action: 'spans',
         sort: state.sort,
         dir: state.dir,
         page: state.page,
@@ -1171,7 +1315,7 @@ async function loadSpans() {
 
     let data;
     try {
-        const r = await fetch('?' + params);
+        const r = await fetch(apiUrl('spans', Object.fromEntries(params.entries())));
         data = await r.json();
     } catch (e) {
         body.innerHTML = '<tr class="state-row"><td colspan="11">Failed to load data.</td></tr>';
@@ -1193,10 +1337,7 @@ async function loadSpans() {
         const active = s.id == state.activeId ? ' class="active"' : '';
         const durCls = durClass(s.duration_ms);
         return `<tr data-id="${escapeHtml(s.id)}"${active}>
-            <td class="td-mono">${escapeHtml(s.started_at_fmt || s.started_at || '—')}</td>
-            <td class="${durCls}">${fmtDur(s.duration_ms)}</td>
-            <td class="td-mono">${escapeHtml(trunc(s.request_model_short  || s.request_model  || '—', 28))}</td>
-            <td class="td-mono">${escapeHtml(trunc(s.response_model_short || s.response_model || '—', 28))}</td>
+            <td class="td-mono">${escapeHtml(fmtStartedAtLocal(s.started_at || s.started_at_fmt || ''))}</td>
             ${s.cron_name
                 ? `<td><span class="badge badge-cron">CRON</span> ${escapeHtml(s.cron_name)}</td>`
                 : s.heartbeat
@@ -1204,11 +1345,14 @@ async function loadSpans() {
                     : `<td style="color:var(--muted);font-style:italic">${escapeHtml(trunc(s.prompt_preview || '', 100))}</td>`
             }
             <td style="color:var(--muted);font-style:italic">${escapeHtml(trunc(s.response_preview || '', 100))}</td>
+            <td>${finishBadge(s.finish_reason)}</td>
+            <td class="${durCls}">${fmtDur(s.duration_ms)}</td>
+            <td class="td-mono">${escapeHtml(trunc(s.request_model_short  || s.request_model  || '—', 28))}</td>
+            <td class="td-mono">${escapeHtml(trunc(s.response_model_short || s.response_model || '—', 28))}</td>
             <td class="td-right">${fmtNum(s.input_tokens)}</td>
             <td class="td-right">${fmtNum(s.output_tokens)}</td>
             <td class="td-right">${fmtNum(s.cached_tokens)}</td>
             <td class="td-right td-mono">${fmtCost(s.total_cost_usd)}</td>
-            <td>${finishBadge(s.finish_reason)}</td>
         </tr>`;
     });
     body.innerHTML = rows.join('');
@@ -1327,7 +1471,7 @@ async function openDetail(id) {
         data = state.detailCache[id];
     } else {
         try {
-            const r = await fetch('?_action=detail&id=' + id);
+            const r = await fetch(apiUrl('detail', { id }));
             data = await r.json();
             state.detailCache[id] = data;
         } catch (e) {
@@ -1376,7 +1520,20 @@ function renderDetailPanel(data, tab) {
     else if (tab === 'prompt')     { body.innerHTML = renderPromptTab(data); }
     else if (tab === 'completion') { body.innerHTML = renderCompletionTab(data); }
     else if (tab === 'trace')      { body.innerHTML = renderTraceTab(data); }
+    bindPersistentDisclosures(body);
     updateMsgNav(tab);
+}
+
+function bindPersistentDisclosures(container) {
+    container.querySelectorAll('details[data-persist-key]').forEach(el => {
+        const key = el.dataset.persistKey;
+        if (Object.prototype.hasOwnProperty.call(state.detailDisclosureState, key)) {
+            el.open = !!state.detailDisclosureState[key];
+        }
+        el.addEventListener('toggle', () => {
+            state.detailDisclosureState[key] = el.open;
+        });
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -1410,8 +1567,17 @@ function scrollToMsg(idx) {
         const bodyTop   = body.getBoundingClientRect().top;
         const targetTop = target.getBoundingClientRect().top;
         body.scrollTop += targetTop - bodyTop;
+        flashMsgLabel(target);
     }
     refreshMsgNavBtns();
+}
+
+function flashMsgLabel(target) {
+    const label = target?.querySelector('.msg-role-label');
+    if (!label) return;
+    label.classList.remove('is-flashing');
+    void label.offsetWidth;
+    label.classList.add('is-flashing');
 }
 
 document.getElementById('msg-nav-top').addEventListener('click',  () => scrollToMsg(0));
@@ -1457,10 +1623,10 @@ function renderCompletionTab(data) {
         html += renderMessage({ role: 'assistant', content: parsed.completion });
     }
     if (parsed.reasoning) {
-        html += `<details class="collapsible"><summary>Reasoning</summary><div class="detail-content">${escapeHtml(parsed.reasoning)}</div></details>`;
+        html += `<details class="collapsible" data-persist-key="completion-reasoning"><summary>Reasoning</summary><div class="detail-content">${escapeHtml(parsed.reasoning)}</div></details>`;
     }
     if (parsed.tools && parsed.tools.length > 0) {
-        html += `<details class="collapsible"><summary>Tool calls (${parsed.tools.length})</summary><div class="detail-content">${escapeHtml(JSON.stringify(parsed.tools, null, 2))}</div></details>`;
+        html += `<details class="collapsible" data-persist-key="completion-tools"><summary>Tool calls (${parsed.tools.length})</summary><div class="detail-content">${escapeHtml(JSON.stringify(parsed.tools, null, 2))}</div></details>`;
     }
     return html;
 }
@@ -1473,10 +1639,10 @@ function renderTraceTab(data) {
     }
     let html = '';
     if (ti) {
-        html += `<details class="collapsible" open><summary>Trace Input</summary><div class="detail-content">${escapeHtml(ti)}</div></details>`;
+        html += `<details class="collapsible" open data-persist-key="trace-input"><summary>Trace Input</summary><div class="detail-content">${renderJsonBlock(ti)}</div></details>`;
     }
     if (to) {
-        html += `<details class="collapsible" open><summary>Trace Output</summary><div class="detail-content">${escapeHtml(to)}</div></details>`;
+        html += `<details class="collapsible" open data-persist-key="trace-output"><summary>Trace Output</summary><div class="detail-content">${renderJsonBlock(to)}</div></details>`;
     }
     return html;
 }

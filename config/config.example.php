@@ -30,4 +30,12 @@ return [
 
     // Dashboard viewer password (for /mywebhookviewer/)
     'viewer_password' => 'DEIN_VIEWER_PASSWORT',
+
+    // Optional local viewer debugging:
+    // Point the dashboard frontend to a mock API instead of the PHP/MySQL backend.
+    // Example: 'http://127.0.0.1:8765'
+    'viewer_api_base' => '',
+
+    // Only enable locally when you want to skip the login form.
+    'viewer_disable_auth' => false,
 ];

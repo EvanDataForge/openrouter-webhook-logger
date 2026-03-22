@@ -1,0 +1,352 @@
+{
+  "stats": {
+    "total_spans": 4,
+    "total_cost": 0.1778,
+    "avg_duration_ms": 3350.0,
+    "total_tokens": 17156
+  },
+  "spans": [
+    {
+      "id": 101,
+      "started_at": "2026-03-22 10:15:00",
+      "started_at_fmt": "2026-03-22 10:15:00",
+      "trace_name": "Mock Product Brief",
+      "request_model": "openrouter/anthropic/claude-3.7-sonnet",
+      "response_model": "openrouter/anthropic/claude-3.7-sonnet",
+      "request_model_short": "claude-3.7-sonnet",
+      "response_model_short": "claude-3.7-sonnet",
+      "duration_ms": 1840,
+      "input_tokens": 2489,
+      "output_tokens": 622,
+      "cached_tokens": 512,
+      "total_cost_usd": 0.0342,
+      "finish_reason": "stop",
+      "finish_reasons": "[\"stop\"]",
+      "span_type": "generation",
+      "operation_name": "chat",
+      "trace_id": "trace-mock-101",
+      "span_id": "span-mock-101",
+      "prompt_preview": "Summarize the new webhook dashboard requirements and suggest a rollout plan.",
+      "response_preview": "Here is a staged implementation plan for the dashboard, including auth, filters, and detail drilldown.",
+      "cron_name": null,
+      "heartbeat": false,
+      "received_at": "2026-03-22 10:15:03"
+    },
+    {
+      "id": 102,
+      "started_at": "2026-03-22 10:08:11",
+      "started_at_fmt": "2026-03-22 10:08:11",
+      "trace_name": "Mock Code Review",
+      "request_model": "openrouter/openai/gpt-5.4",
+      "response_model": "openrouter/openai/gpt-5.4",
+      "request_model_short": "gpt-5.4",
+      "response_model_short": "gpt-5.4",
+      "duration_ms": 4620,
+      "input_tokens": 3820,
+      "output_tokens": 1290,
+      "cached_tokens": 2048,
+      "total_cost_usd": 0.0891,
+      "finish_reason": "tool_calls",
+      "finish_reasons": "[\"tool_calls\"]",
+      "span_type": "generation",
+      "operation_name": "chat",
+      "trace_id": "trace-mock-102",
+      "span_id": "span-mock-102",
+      "prompt_preview": "Review this PHP dashboard file and point out the riskiest regressions.",
+      "response_preview": "I found three issues: missing auth guard around actions, an unhandled fetch failure, and a sorting regression.",
+      "cron_name": null,
+      "heartbeat": false,
+      "received_at": "2026-03-22 10:08:17"
+    },
+    {
+      "id": 103,
+      "started_at": "2026-03-22 09:42:00",
+      "started_at_fmt": "2026-03-22 09:42:00",
+      "trace_name": "Nightly Maintenance",
+      "request_model": "openrouter/openai/gpt-4.1-mini",
+      "response_model": "openrouter/openai/gpt-4.1-mini",
+      "request_model_short": "gpt-4.1-mini",
+      "response_model_short": "gpt-4.1-mini",
+      "duration_ms": 810,
+      "input_tokens": 600,
+      "output_tokens": 144,
+      "cached_tokens": 0,
+      "total_cost_usd": 0.0045,
+      "finish_reason": "stop",
+      "finish_reasons": "[\"stop\"]",
+      "span_type": "generation",
+      "operation_name": "chat",
+      "trace_id": "trace-mock-103",
+      "span_id": "span-mock-103",
+      "prompt_preview": "",
+      "response_preview": "Maintenance heartbeat received and logged successfully.",
+      "cron_name": "nightly-backup",
+      "heartbeat": false,
+      "received_at": "2026-03-22 09:42:01"
+    },
+    {
+      "id": 104,
+      "started_at": "2026-03-22 09:30:00",
+      "started_at_fmt": "2026-03-22 09:30:00",
+      "trace_name": "Heartbeat Probe",
+      "request_model": "openrouter/openai/gpt-4.1-nano",
+      "response_model": "openrouter/openai/gpt-4.1-nano",
+      "request_model_short": "gpt-4.1-nano",
+      "response_model_short": "gpt-4.1-nano",
+      "duration_ms": 130,
+      "input_tokens": 120,
+      "output_tokens": 59,
+      "cached_tokens": 0,
+      "total_cost_usd": 0.0,
+      "finish_reason": "stop",
+      "finish_reasons": "[\"stop\"]",
+      "span_type": "generation",
+      "operation_name": "chat",
+      "trace_id": "trace-mock-104",
+      "span_id": "span-mock-104",
+      "prompt_preview": "",
+      "response_preview": "OK",
+      "cron_name": null,
+      "heartbeat": true,
+      "received_at": "2026-03-22 09:30:00"
+    }
+  ],
+  "details": {
+    "101": {
+      "span": {
+        "id": 101,
+        "trace_id": "trace-mock-101",
+        "span_id": "span-mock-101",
+        "openrouter_trace_id": "gen-mock-101",
+        "request_model": "openrouter/anthropic/claude-3.7-sonnet",
+        "response_model": "openrouter/anthropic/claude-3.7-sonnet",
+        "provider_name": "Anthropic",
+        "provider_slug": "anthropic",
+        "operation_name": "chat",
+        "span_type": "generation",
+        "finish_reason": "stop",
+        "finish_reasons": "[\"stop\"]",
+        "trace_name": "Mock Product Brief",
+        "input_tokens": 2489,
+        "output_tokens": 622,
+        "cached_tokens": 512,
+        "reasoning_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0,
+        "image_tokens": 0,
+        "input_cost_usd": 0.021,
+        "output_cost_usd": 0.0132,
+        "total_cost_usd": 0.0342,
+        "input_unit_price": 0.00000844,
+        "output_unit_price": 0.00002122,
+        "started_at": "2026-03-22 10:15:00.000",
+        "ended_at": "2026-03-22 10:15:01.840",
+        "duration_ms": 1840,
+        "api_key_name": "local-mock",
+        "user_id": "user_mock_101",
+        "entity_id": "entity_mock_101",
+        "received_at": "2026-03-22 10:15:03"
+      },
+      "gen_ai_messages": [
+        {
+          "role": "system",
+          "content": "You are helping design a compact observability dashboard."
+        },
+        {
+          "role": "user",
+          "content": "Summarize the new webhook dashboard requirements and suggest a rollout plan."
+        }
+      ],
+      "gen_ai_completion_parsed": {
+        "completion": "Here is a staged implementation plan for the dashboard, including auth, filters, detail drilldown, and local mock testing.",
+        "reasoning": "The dashboard already exists as a single PHP file, so adding a local mock mode is lower risk than introducing a second frontend.",
+        "tools": []
+      },
+      "span_messages": [],
+      "span_output_parsed": {
+        "completion": null,
+        "reasoning": null,
+        "tools": []
+      },
+      "trace_input_raw": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize the new webhook dashboard requirements and suggest a rollout plan.\"}]}",
+      "trace_output_raw": "{\"completion\":\"Here is a staged implementation plan for the dashboard.\"}"
+    },
+    "102": {
+      "span": {
+        "id": 102,
+        "trace_id": "trace-mock-102",
+        "span_id": "span-mock-102",
+        "openrouter_trace_id": "gen-mock-102",
+        "request_model": "openrouter/openai/gpt-5.4",
+        "response_model": "openrouter/openai/gpt-5.4",
+        "provider_name": "OpenAI",
+        "provider_slug": "openai",
+        "operation_name": "chat",
+        "span_type": "generation",
+        "finish_reason": "tool_calls",
+        "finish_reasons": "[\"tool_calls\"]",
+        "trace_name": "Mock Code Review",
+        "input_tokens": 3820,
+        "output_tokens": 1290,
+        "cached_tokens": 2048,
+        "reasoning_tokens": 198,
+        "audio_tokens": 0,
+        "video_tokens": 0,
+        "image_tokens": 0,
+        "input_cost_usd": 0.0517,
+        "output_cost_usd": 0.0374,
+        "total_cost_usd": 0.0891,
+        "input_unit_price": 0.00001353,
+        "output_unit_price": 0.000029,
+        "started_at": "2026-03-22 10:08:11.000",
+        "ended_at": "2026-03-22 10:08:15.620",
+        "duration_ms": 4620,
+        "api_key_name": "local-mock",
+        "user_id": "user_mock_102",
+        "entity_id": "entity_mock_102",
+        "received_at": "2026-03-22 10:08:17"
+      },
+      "gen_ai_messages": [
+        {
+          "role": "system",
+          "content": "Perform a code review and prioritize correctness risks."
+        },
+        {
+          "role": "user",
+          "content": "Review this PHP dashboard file and point out the riskiest regressions."
+        }
+      ],
+      "gen_ai_completion_parsed": {
+        "completion": "I found three issues: missing auth guard around actions, an unhandled fetch failure, and a sorting regression.",
+        "reasoning": "I focused on regressions that would change runtime behavior first, then on missing verification coverage.",
+        "tools": [
+          {
+            "type": "function",
+            "name": "open_file",
+            "arguments": {
+              "path": "public/webhookviewer.php"
+            }
+          }
+        ]
+      },
+      "span_messages": [],
+      "span_output_parsed": {
+        "completion": null,
+        "reasoning": null,
+        "tools": []
+      },
+      "trace_input_raw": "{\"messages\":[{\"role\":\"user\",\"content\":\"Review this PHP dashboard file and point out the riskiest regressions.\"}]}",
+      "trace_output_raw": "{\"completion\":\"I found three issues.\"}"
+    },
+    "103": {
+      "span": {
+        "id": 103,
+        "trace_id": "trace-mock-103",
+        "span_id": "span-mock-103",
+        "openrouter_trace_id": "gen-mock-103",
+        "request_model": "openrouter/openai/gpt-4.1-mini",
+        "response_model": "openrouter/openai/gpt-4.1-mini",
+        "provider_name": "OpenAI",
+        "provider_slug": "openai",
+        "operation_name": "chat",
+        "span_type": "generation",
+        "finish_reason": "stop",
+        "finish_reasons": "[\"stop\"]",
+        "trace_name": "Nightly Maintenance",
+        "input_tokens": 600,
+        "output_tokens": 144,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0,
+        "image_tokens": 0,
+        "input_cost_usd": 0.002,
+        "output_cost_usd": 0.0025,
+        "total_cost_usd": 0.0045,
+        "input_unit_price": 0.00000333,
+        "output_unit_price": 0.00001736,
+        "started_at": "2026-03-22 09:42:00.000",
+        "ended_at": "2026-03-22 09:42:00.810",
+        "duration_ms": 810,
+        "api_key_name": "local-mock",
+        "user_id": "user_mock_103",
+        "entity_id": "entity_mock_103",
+        "received_at": "2026-03-22 09:42:01"
+      },
+      "gen_ai_messages": [
+        {
+          "role": "user",
+          "content": "[cron:nightly-backup] Summarize the current storage usage and list any failed jobs."
+        }
+      ],
+      "gen_ai_completion_parsed": {
+        "completion": "Maintenance heartbeat received and logged successfully.",
+        "reasoning": null,
+        "tools": []
+      },
+      "span_messages": [],
+      "span_output_parsed": {
+        "completion": null,
+        "reasoning": null,
+        "tools": []
+      },
+      "trace_input_raw": "{\"messages\":[{\"role\":\"user\",\"content\":\"[cron:nightly-backup] Summarize the current storage usage and list any failed jobs.\"}]}",
+      "trace_output_raw": "{\"completion\":\"Maintenance heartbeat received and logged successfully.\"}"
+    },
+    "104": {
+      "span": {
+        "id": 104,
+        "trace_id": "trace-mock-104",
+        "span_id": "span-mock-104",
+        "openrouter_trace_id": "gen-mock-104",
+        "request_model": "openrouter/openai/gpt-4.1-nano",
+        "response_model": "openrouter/openai/gpt-4.1-nano",
+        "provider_name": "OpenAI",
+        "provider_slug": "openai",
+        "operation_name": "chat",
+        "span_type": "generation",
+        "finish_reason": "stop",
+        "finish_reasons": "[\"stop\"]",
+        "trace_name": "Heartbeat Probe",
+        "input_tokens": 120,
+        "output_tokens": 59,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0,
+        "image_tokens": 0,
+        "input_cost_usd": 0.0,
+        "output_cost_usd": 0.0,
+        "total_cost_usd": 0.0,
+        "input_unit_price": 0.0,
+        "output_unit_price": 0.0,
+        "started_at": "2026-03-22 09:30:00.000",
+        "ended_at": "2026-03-22 09:30:00.130",
+        "duration_ms": 130,
+        "api_key_name": "local-mock",
+        "user_id": "user_mock_104",
+        "entity_id": "entity_mock_104",
+        "received_at": "2026-03-22 09:30:00"
+      },
+      "gen_ai_messages": [
+        {
+          "role": "user",
+          "content": "Read HEARTBEAT.md if it exists"
+        }
+      ],
+      "gen_ai_completion_parsed": {
+        "completion": "OK",
+        "reasoning": null,
+        "tools": []
+      },
+      "span_messages": [],
+      "span_output_parsed": {
+        "completion": null,
+        "reasoning": null,
+        "tools": []
+      },
+      "trace_input_raw": "{\"messages\":[{\"role\":\"user\",\"content\":\"Read HEARTBEAT.md if it exists\"}]}",
+      "trace_output_raw": "{\"completion\":\"OK\"}"
+    }
+  }
+}

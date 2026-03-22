@@ -1,6 +1,6 @@
 # OpenRouter Webhook Logger
 
-A lightweight PHP service that receives [OpenRouter](https://openrouter.ai) OTLP traceability webhooks, verifies their authenticity, and stores the trace data in MySQL.
+A lightweight PHP service that receives [OpenRouter](https://openrouter.ai) OTLP traceability webhooks, verifies their authenticity, stores the trace data in MySQL, and includes an authenticated dashboard for browsing traces.
 
 **Requirements:** PHP 7.4+, MySQL 5.7+, Apache with mod_rewrite. Runs on shared hosting (e.g. Variomedia). No Composer needed.
 
@@ -33,7 +33,7 @@ mysql -u YOUR_USER -p YOUR_DATABASE < sql/schema.sql
 
 ### 4. Upload to your web server
 
-Upload all files via SFTP to your web hosting directory. Make sure `public/webhook.php` is accessible via your domain.
+Upload all files via SFTP to your web hosting directory. Make sure `public/webhook.php` and `public/webhookviewer.php` are accessible via your domain.
 
 **Recommended directory layout on the server:**
 
@@ -87,6 +87,27 @@ In OpenRouter's webhook settings, add a **custom header**:
 
 ---
 
+## Dashboard viewer
+
+The project includes a read-only dashboard at:
+
+- `/webhookviewer`
+- `/webhookviewer/`
+- `/webhookviewer.php`
+
+Configure the dashboard password via `viewer_password` in `config/config.php`.
+
+The dashboard currently provides:
+
+- sortable trace table with prompt/result previews
+- search and hide filters for cron and heartbeat rows
+- drilldown panel for prompt, response, metadata, and trace I/O
+- browser-local rendering of the `Started` timestamp while keeping server-side sorting intact
+- persisted open/closed state for `Reasoning`, `Tool calls`, `Trace Input`, and `Trace Output` while switching between spans
+- JSON highlighting for `Trace Input` and `Trace Output`
+
+---
+
 ## Test with curl
 
 ```bash
@@ -129,6 +150,46 @@ curl -X POST https://yourdomain.de/webhook.php \
   -H "Content-Type: application/json" \
   -d '{"resourceSpans":[]}'
 ```
+
+---
+
+## Local dashboard debugging with mock data
+
+You can run the PHP dashboard locally without connecting to production MySQL by pointing it at the bundled Python mock API.
+
+Start the mock API:
+
+```bash
+python3 tools/mock_viewer_api.py
+```
+
+Then start the PHP viewer in local mock mode:
+
+```bash
+VIEWER_API_BASE=http://127.0.0.1:8765 \
+VIEWER_DISABLE_AUTH=1 \
+php -S 127.0.0.1:8088 -t public
+```
+
+Open:
+
+```text
+http://127.0.0.1:8088/webhookviewer.php
+```
+
+Or start both together:
+
+```bash
+bash dev/start-local.sh
+```
+
+Notes:
+- Mock responses come from `dev/mock_api_data.json`
+- The viewer shows a `Mock API` badge when `VIEWER_API_BASE` is active
+- You can edit the JSON file to add edge cases for sorting, filters, cron entries, heartbeat rows, and detail views
+- If you prefer, you can also set `viewer_api_base` and `viewer_disable_auth` in `config/config.php` instead of using env vars
+- In VS Code, select the launch config `Local Viewer Mock Stack (F5)` and press `F5`
+- `dev/start-local.sh` starts both the mock API and the local PHP frontend together
 
 ---
 

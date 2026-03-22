@@ -2,6 +2,27 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Start Local Mock Stack",
+            "type": "shell",
+            "command": "bash ${workspaceFolder}/dev/start-local.sh",
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "Local mock stack started",
+                    "endsPattern": "Frontend:"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "server"
+            }
+        },
+        {
             "label": "Start PHP Server",
             "type": "shell",
             "command": "php -S localhost:8080 -t ${workspaceFolder}/public",
@@ -48,7 +69,7 @@
             "id": "bearerToken",
             "type": "promptString",
             "description": "Bearer Token aus config.php",
-            "default": "4e488516d659792dd717d841ab1c32e76e80fc378e21cfc5a0ffcad6f335da32"
+            "default": "PASTE_YOUR_BEARER_TOKEN_HERE"
         }
     ]
 }
