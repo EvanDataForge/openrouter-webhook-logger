@@ -703,20 +703,27 @@ tbody td { padding: 7px 10px; vertical-align: middle; }
     border-top: 1px solid var(--border);
     background: var(--bg);
     flex-shrink: 0;
+    flex-wrap: wrap;
 }
 .page-btn {
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    padding: 5px 11px;
-    border-radius: 5px;
+    padding: 4px 9px;
+    border-radius: 999px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
+    min-width: 34px;
 }
 .page-btn:hover:not(:disabled) { background: var(--surface); }
 .page-btn:disabled { opacity: 0.4; cursor: default; }
 .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-#page-info { font-size: 13px; color: var(--muted); }
+.page-ellipsis {
+    color: var(--muted);
+    font-size: 12px;
+    padding: 0 2px;
+    user-select: none;
+}
 
 /* ---------- Detail panel ---------- */
 #detail-panel {
@@ -1416,13 +1423,45 @@ function renderPagination() {
 
     if (pages <= 1) { el.innerHTML = ''; return; }
 
-    let html = `<button class="page-btn" ${cur<=1?'disabled':''} id="pg-prev">‹ Prev</button>`;
-    html += `<span id="page-info">Page ${cur} of ${pages}</span>`;
-    html += `<button class="page-btn" ${cur>=pages?'disabled':''} id="pg-next">Next ›</button>`;
-    el.innerHTML = html;
+    const pageItems = [];
+    const addPage = (page) => {
+        pageItems.push({ type: 'page', page });
+    };
+    const addEllipsis = () => {
+        if (pageItems[pageItems.length - 1]?.type !== 'ellipsis') {
+            pageItems.push({ type: 'ellipsis' });
+        }
+    };
 
-    el.querySelector('#pg-prev')?.addEventListener('click', () => { state.page--; loadSpans(); });
-    el.querySelector('#pg-next')?.addEventListener('click', () => { state.page++; loadSpans(); });
+    addPage(1);
+
+    const windowStart = Math.max(2, cur - 2);
+    const windowEnd   = Math.min(pages - 1, cur + 2);
+
+    if (windowStart > 2) addEllipsis();
+    for (let page = windowStart; page <= windowEnd; page++) {
+        addPage(page);
+    }
+    if (windowEnd < pages - 1) addEllipsis();
+
+    if (pages > 1) addPage(pages);
+
+    el.innerHTML = pageItems.map(item => {
+        if (item.type === 'ellipsis') {
+            return '<span class="page-ellipsis">…</span>';
+        }
+        const active = item.page === cur ? ' active' : '';
+        return `<button class="page-btn${active}" data-page="${item.page}">${item.page}</button>`;
+    }).join('');
+
+    el.querySelectorAll('button[data-page]').forEach(button => {
+        button.addEventListener('click', () => {
+            const nextPage = parseInt(button.dataset.page, 10);
+            if (nextPage === state.page) return;
+            state.page = nextPage;
+            loadSpans();
+        });
+    });
 }
 
 // ---------------------------------------------------------------------------
