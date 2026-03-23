@@ -618,6 +618,7 @@ $isMockMode = $VIEWER_API_BASE !== '';
     --amber: #d97706;
     --red: #dc2626;
     --panel-w: 520px;
+    --header-h: 52px;
 }
 *, *::before, *::after { box-sizing: border-box; }
 body {
@@ -628,7 +629,7 @@ body {
     color: var(--text);
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100dvh;
     overflow: hidden;
 }
 
@@ -637,7 +638,7 @@ header {
     background: var(--text);
     color: #fff;
     padding: 0 20px;
-    height: 52px;
+    min-height: var(--header-h);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -730,7 +731,6 @@ header .header-right { display: flex; align-items: center; gap: 12px; }
     outline: none;
 }
 #toolbar input[type=text]:focus { border-color: var(--accent); }
-#toolbar .total-label { color: var(--muted); font-size: 13px; margin-left: auto; }
 .hide-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .hide-toggle {
     border: 1px solid var(--border);
@@ -799,6 +799,7 @@ tbody tr.active { background: #eff6ff; }
 tbody td { padding: 7px 10px; vertical-align: middle; }
 .td-right { text-align: right; }
 .td-mono  { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+.td-preview { color: var(--muted); font-style: italic; }
 
 /* Duration color coding */
 .dur-green { color: var(--green); font-weight: 500; }
@@ -858,7 +859,7 @@ tbody td { padding: 7px 10px; vertical-align: middle; }
 /* ---------- Detail panel ---------- */
 #detail-panel {
     position: fixed;
-    top: 52px; /* below header */
+    top: var(--header-h);
     right: 0;
     width: var(--panel-w);
     bottom: 0;
@@ -872,6 +873,19 @@ tbody td { padding: 7px 10px; vertical-align: middle; }
     box-shadow: -4px 0 20px rgba(0,0,0,0.08);
 }
 #detail-panel.open { transform: translateX(0); }
+#detail-backdrop {
+    position: fixed;
+    inset: var(--header-h) 0 0 0;
+    background: rgba(15, 23, 42, 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 90;
+}
+#detail-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+}
 #detail-header {
     display: flex;
     align-items: center;
@@ -1150,6 +1164,272 @@ details.collapsible > .detail-content {
     margin-right: 8px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 860px) {
+    :root {
+        --panel-w: 100vw;
+        --header-h: 82px;
+    }
+
+    body {
+        overflow: auto;
+    }
+
+    header {
+        height: auto;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+        flex-wrap: wrap;
+    }
+
+    header h1 {
+        font-size: 15px;
+    }
+
+    header h1 {
+        width: 100%;
+    }
+
+    header .header-right {
+        width: 100%;
+        justify-content: space-between;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .header-btn,
+    .mode-badge,
+    header .header-right form {
+        flex: 1 1 auto;
+    }
+
+    header .header-right form button {
+        width: 100%;
+    }
+
+    #toolbar {
+        padding: 8px 12px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        align-items: center;
+        gap: 6px;
+    }
+
+    #toolbar input[type=text] {
+        width: 100%;
+        min-width: 0;
+        padding: 5px 9px;
+        font-size: 12px;
+    }
+
+    .hide-label,
+    .hide-toggle {
+        font-size: 11px;
+    }
+
+    .hide-label {
+        justify-self: end;
+        white-space: nowrap;
+    }
+
+    .hide-toggle {
+        padding: 4px 7px;
+        white-space: nowrap;
+    }
+
+    #table-area {
+        overflow-x: hidden;
+    }
+
+    #table-area.panel-open {
+        margin-right: 0;
+    }
+
+    #spans-table,
+    #spans-table tbody {
+        display: block;
+    }
+
+    #spans-table thead {
+        display: none;
+    }
+
+    #spans-table tbody tr[data-id] {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas:
+            "started finish"
+            "prompt prompt"
+            "result result";
+        margin: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        overflow: hidden;
+    }
+
+    #spans-table tbody tr[data-id].active {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+    }
+
+    #spans-table tbody td {
+        display: block;
+        padding: 7px 10px;
+        border-top: 1px solid rgba(224,227,232,0.75);
+        text-align: left;
+        min-width: 0;
+    }
+
+    #spans-table tbody tr[data-id] td:first-child {
+        border-top: none;
+    }
+
+    #spans-table tbody td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 2px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    #spans-table tbody td.td-right {
+        text-align: left;
+    }
+
+    #spans-table tbody td.td-preview {
+        font-style: normal;
+        line-height: 1.3;
+    }
+
+    #spans-table tbody tr[data-id] td:nth-child(1) {
+        grid-area: started;
+    }
+
+    #spans-table tbody tr[data-id] td:nth-child(3) {
+        grid-area: result;
+        border-top: none;
+    }
+
+    #spans-table tbody tr[data-id] td:nth-child(2) {
+        grid-area: prompt;
+    }
+
+    #spans-table tbody tr[data-id] td:nth-child(4) {
+        grid-area: finish;
+        border-top: none;
+        border-left: 1px solid rgba(224,227,232,0.75);
+    }
+
+    #spans-table tbody tr[data-id] td:nth-child(1),
+    #spans-table tbody tr[data-id] td:nth-child(4) {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+
+    #spans-table tbody tr[data-id] td:nth-child(1)::before,
+    #spans-table tbody tr[data-id] td:nth-child(4)::before {
+        margin-bottom: 0;
+        flex: 0 0 auto;
+        min-width: 38px;
+    }
+
+    #spans-table tbody tr[data-id] td:nth-child(n + 5) {
+        display: none;
+    }
+
+    #spans-table .state-row {
+        margin: 0;
+        border: 0;
+        box-shadow: none;
+    }
+
+    #spans-table .state-row td {
+        display: table-cell;
+        border-top: none;
+        text-align: center;
+    }
+
+    #spans-table .state-row td::before {
+        display: none;
+    }
+
+    #detail-backdrop {
+        inset: 0;
+    }
+
+    #detail-panel {
+        top: 0;
+        width: 100vw;
+        height: 100dvh;
+        bottom: auto;
+        border-left: none;
+        box-shadow: none;
+    }
+
+    #detail-header {
+        padding: 10px 12px;
+    }
+
+    #detail-header h2 {
+        max-width: calc(100% - 44px);
+    }
+
+    #detail-tabs {
+        overflow-x: auto;
+    }
+
+    .tab-btn {
+        flex: 0 0 auto;
+        min-width: 88px;
+        padding: 8px 6px;
+        font-size: 11px;
+    }
+
+    #detail-body {
+        padding: 14px;
+        padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .meta-grid {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .meta-key {
+        padding-top: 10px;
+        font-weight: 700;
+    }
+
+    .meta-val {
+        padding-bottom: 10px;
+        word-break: break-word;
+    }
+
+    .msg-bubble {
+        max-width: 100%;
+    }
+
+    #msg-nav {
+        right: 8px;
+        bottom: 12px;
+        top: auto;
+        transform: none;
+        opacity: 0.9;
+    }
+
+    #stats-footer {
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+        gap: 6px;
+        scroll-padding: 12px;
+    }
+}
 </style>
 </head>
 <body>
@@ -1201,7 +1481,6 @@ details.collapsible > .detail-content {
     <span class="hide-label">Hide:</span>
     <button class="hide-toggle" data-type="cron">Cron</button>
     <button class="hide-toggle" data-type="heartbeat">Heartbeat</button>
-    <span class="total-label" id="total-label"></span>
 </div>
 
 <div id="main-area">
@@ -1228,6 +1507,8 @@ details.collapsible > .detail-content {
         </table>
         <div id="pagination"></div>
     </div>
+
+    <div id="detail-backdrop"></div>
 
     <!-- Detail panel -->
     <div id="detail-panel">
@@ -1415,6 +1696,47 @@ const state = {
     detailDisclosureState: {},
 };
 
+function syncFilterStateToUrl() {
+    const url = new URL(window.location.href);
+    const search = state.search.trim();
+    const hide = [...state.hide].sort().join(',');
+
+    if (search !== '') {
+        url.searchParams.set('search', search);
+    } else {
+        url.searchParams.delete('search');
+    }
+
+    if (hide !== '') {
+        url.searchParams.set('hide', hide);
+    } else {
+        url.searchParams.delete('hide');
+    }
+
+    history.replaceState(null, '', url);
+}
+
+function restoreFilterStateFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const search = (params.get('search') || '').trim();
+    const hide = (params.get('hide') || '')
+        .split(',')
+        .map(value => value.trim())
+        .filter(value => value === 'cron' || value === 'heartbeat');
+
+    state.search = search;
+    state.hide = new Set(hide);
+
+    const searchInput = document.getElementById('search-filter');
+    if (searchInput) {
+        searchInput.value = search;
+    }
+
+    document.querySelectorAll('.hide-toggle').forEach(btn => {
+        btn.classList.toggle('active', state.hide.has(btn.dataset.type));
+    });
+}
+
 function setRefreshBusy(isBusy) {
     const button = document.getElementById('refresh-dashboard');
     if (!button) return;
@@ -1499,16 +1821,10 @@ async function loadSpans(options = {}) {
     state.filteredTruncated = !!data.scan_truncated;
     state.total = data.total || 0;
     const spans = data.spans || [];
-    const lbl = document.getElementById('total-label');
     if (state.filteredMode) {
         state.filteredLoaded = append ? state.filteredLoaded + spans.length : spans.length;
-        let text = state.filteredLoaded.toLocaleString() + ' filtered span' + (state.filteredLoaded !== 1 ? 's' : '');
-        if (state.filteredHasMore) text += ' loaded';
-        if (state.filteredTruncated) text += ' (scan limit reached)';
-        lbl.textContent = text;
     } else {
         state.filteredLoaded = 0;
-        lbl.textContent = state.total.toLocaleString() + ' span' + (state.total !== 1 ? 's' : '');
     }
 
     if (spans.length === 0 && !append) {
@@ -1525,22 +1841,22 @@ async function loadSpans(options = {}) {
         const active = s.id == state.activeId ? ' class="active"' : '';
         const durCls = durClass(s.duration_ms);
         return `<tr data-id="${escapeHtml(s.id)}"${active}>
-            <td class="td-mono">${escapeHtml(fmtStartedAtLocal(s.started_at || s.started_at_fmt || ''))}</td>
+            <td class="td-mono" data-label="Started">${escapeHtml(fmtStartedAtLocal(s.started_at || s.started_at_fmt || ''))}</td>
             ${s.cron_name
-                ? `<td><span class="badge badge-cron">CRON</span> ${escapeHtml(s.cron_name)}</td>`
+                ? `<td data-label="Prompt"><span class="badge badge-cron">CRON</span> ${escapeHtml(s.cron_name)}</td>`
                 : s.heartbeat
-                    ? `<td><span class="badge badge-heartbeat">HEARTBEAT</span></td>`
-                    : `<td style="color:var(--muted);font-style:italic">${escapeHtml(trunc(s.prompt_preview || '', 100))}</td>`
+                    ? `<td data-label="Prompt"><span class="badge badge-heartbeat">HEARTBEAT</span></td>`
+                    : `<td class="td-preview" data-label="Prompt">${escapeHtml(trunc(s.prompt_preview || '', 100))}</td>`
             }
-            <td style="color:var(--muted);font-style:italic">${escapeHtml(trunc(s.response_preview || '', 100))}</td>
-            <td>${finishBadge(s.finish_reason)}</td>
-            <td class="${durCls}">${fmtDur(s.duration_ms)}</td>
-            <td class="td-mono">${escapeHtml(trunc(s.request_model_short  || s.request_model  || '—', 28))}</td>
-            <td class="td-mono">${escapeHtml(trunc(s.response_model_short || s.response_model || '—', 28))}</td>
-            <td class="td-right">${fmtNum(s.input_tokens)}</td>
-            <td class="td-right">${fmtNum(s.output_tokens)}</td>
-            <td class="td-right">${fmtNum(s.cached_tokens)}</td>
-            <td class="td-right td-mono">${fmtCost(s.total_cost_usd)}</td>
+            <td class="td-preview" data-label="Result">${escapeHtml(trunc(s.response_preview || '', 100))}</td>
+            <td data-label="Finish">${finishBadge(s.finish_reason)}</td>
+            <td class="${durCls}" data-label="Duration">${fmtDur(s.duration_ms)}</td>
+            <td class="td-mono" data-label="Req Model">${escapeHtml(trunc(s.request_model_short  || s.request_model  || '—', 28))}</td>
+            <td class="td-mono" data-label="Resp Model">${escapeHtml(trunc(s.response_model_short || s.response_model || '—', 28))}</td>
+            <td class="td-right" data-label="In Tok">${fmtNum(s.input_tokens)}</td>
+            <td class="td-right" data-label="Out Tok">${fmtNum(s.output_tokens)}</td>
+            <td class="td-right" data-label="Cache">${fmtNum(s.cached_tokens)}</td>
+            <td class="td-right td-mono" data-label="Cost">${fmtCost(s.total_cost_usd)}</td>
         </tr>`;
     });
     if (append) {
@@ -1669,6 +1985,7 @@ document.getElementById('search-filter').addEventListener('input', function () {
         state.search = this.value.trim();
         state.page   = 1;
         resetFilteredState();
+        syncFilterStateToUrl();
         loadSpans();
     }, 350);
 });
@@ -1685,6 +2002,7 @@ document.querySelectorAll('.hide-toggle').forEach(btn => {
         }
         state.page = 1;
         resetFilteredState();
+        syncFilterStateToUrl();
         loadSpans();
     });
 });
@@ -1706,7 +2024,9 @@ async function openDetail(id) {
 
     // Open panel
     const panel = document.getElementById('detail-panel');
+    const backdrop = document.getElementById('detail-backdrop');
     panel.classList.add('open');
+    backdrop.classList.add('open');
     document.getElementById('table-area').classList.add('panel-open');
 
     // Show loading in body
@@ -1752,12 +2072,16 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // ---------------------------------------------------------------------------
 // Close panel
 // ---------------------------------------------------------------------------
-document.getElementById('detail-close').addEventListener('click', () => {
+function closeDetailPanel() {
     document.getElementById('detail-panel').classList.remove('open');
+    document.getElementById('detail-backdrop').classList.remove('open');
     document.getElementById('table-area').classList.remove('panel-open');
     document.querySelectorAll('#spans-body tr.active').forEach(r => r.classList.remove('active'));
     state.activeId = null;
-});
+}
+
+document.getElementById('detail-close').addEventListener('click', closeDetailPanel);
+document.getElementById('detail-backdrop').addEventListener('click', closeDetailPanel);
 
 // ---------------------------------------------------------------------------
 // Render detail panel
@@ -1942,6 +2266,10 @@ function renderMessage(msg) {
 // ---------------------------------------------------------------------------
 document.addEventListener('keydown', function (e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Escape' && state.activeId != null) {
+        closeDetailPanel();
+        return;
+    }
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
     e.preventDefault();
 
@@ -1960,6 +2288,7 @@ document.addEventListener('keydown', function (e) {
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
+restoreFilterStateFromUrl();
 refreshDashboard();
 
 })();
