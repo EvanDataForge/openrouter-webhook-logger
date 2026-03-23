@@ -101,10 +101,13 @@ The dashboard currently provides:
 
 - sortable trace table with prompt/result previews
 - search and hide filters for cron and heartbeat rows
+- responsive mobile layout for iPhone and other small screens
 - drilldown panel for prompt, response, metadata, and trace I/O
 - browser-local rendering of the `Started` timestamp while keeping server-side sorting intact
 - persisted open/closed state for `Reasoning`, `Tool calls`, `Trace Input`, and `Trace Output` while switching between spans
 - JSON highlighting for `Trace Input` and `Trace Output`
+
+On small screens, the table automatically switches to a compact card layout. The mobile list focuses on `Started`, `Finish`, `Prompt`, and `Result`, while the full span details remain available in the detail drawer.
 
 ---
 
