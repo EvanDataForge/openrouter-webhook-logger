@@ -589,6 +589,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['_viewer_action'])) {
         }
         header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
         exit;
+    } elseif ($va === 'cleanup') {
+        if (!viewer_check_auth()) { http_response_code(403); exit; }
+        if (!csrf_valid($_POST['csrf'] ?? '')) { http_response_code(403); exit; }
+        $pdo = (new Database($config['db']))->getConnection();
+        $tracesDeleted = 0;
+        $authDeleted   = 0;
+        try {
+            $stmt = $pdo->prepare('DELETE FROM traces WHERE received_at < DATE_SUB(NOW(), INTERVAL 3 DAY)');
+            $stmt->execute();
+            $tracesDeleted = $stmt->rowCount();
+            $stmt = $pdo->prepare('DELETE FROM auth_failures WHERE failed_at < DATE_SUB(NOW(), INTERVAL 3 DAY)');
+            $stmt->execute();
+            $authDeleted = $stmt->rowCount();
+            $_SESSION['flash'] = ($tracesDeleted + $authDeleted > 0)
+                ? "Deleted {$tracesDeleted} traces and {$authDeleted} auth failures."
+                : 'No entries older than 3 days found.';
+        } catch (Exception $e) {
+            $_SESSION['flash'] = 'Cleanup failed. Please try again.';
+        }
+        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+        exit;
     }
 }
 
@@ -685,6 +706,43 @@ header .header-right { display: flex; align-items: center; gap: 12px; }
 }
 .btn-logout {
     background: transparent;
+}
+.burger-menu {
+    position: relative;
+}
+.burger-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+    min-width: 170px;
+    z-index: 200;
+    padding: 4px 0;
+}
+.burger-item {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 9px 16px;
+    text-align: left;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 0;
+}
+.burger-item:hover { background: var(--row-hover); }
+.flash-msg {
+    margin: 10px 20px 0;
+    padding: 9px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #ecfdf5;
+    border: 1px solid #6ee7b7;
+    color: #065f46;
 }
 
 /* ---------- Stats footer ---------- */
@@ -1473,8 +1531,24 @@ details.collapsible > .detail-content {
             <input type="hidden" name="csrf" value="<?= htmlspecialchars(csrf_token()) ?>">
             <button type="submit" class="header-btn btn-logout">Sign out</button>
         </form>
+        <div class="burger-menu" id="burger-menu">
+            <button type="button" class="header-btn" id="burger-toggle" aria-label="Menu">&#9776;</button>
+            <div class="burger-dropdown" id="burger-dropdown" hidden>
+                <form method="POST" style="margin:0">
+                    <input type="hidden" name="_viewer_action" value="cleanup">
+                    <input type="hidden" name="csrf" value="<?= htmlspecialchars(csrf_token()) ?>">
+                    <button type="submit" class="burger-item" onclick="return confirm('Delete all entries older than 3 days? This action cannot be undone.')">
+                        Cleanup Database
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
 </header>
+
+<?php if (!empty($_SESSION['flash'])): ?>
+<div class="flash-msg"><?= htmlspecialchars($_SESSION['flash']) ?></div>
+<?php unset($_SESSION['flash']); endif; ?>
 
 <div id="toolbar">
     <input type="text" id="search-filter" placeholder="Search…" autocomplete="off">
@@ -2290,6 +2364,22 @@ document.addEventListener('keydown', function (e) {
 // ---------------------------------------------------------------------------
 restoreFilterStateFromUrl();
 refreshDashboard();
+
+// ---------------------------------------------------------------------------
+// Burger menu
+// ---------------------------------------------------------------------------
+const burgerToggle   = document.getElementById('burger-toggle');
+const burgerDropdown = document.getElementById('burger-dropdown');
+if (burgerToggle) {
+    burgerToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        burgerDropdown.hidden = !burgerDropdown.hidden;
+    });
+    document.addEventListener('click', () => {
+        burgerDropdown.hidden = true;
+    });
+    burgerDropdown.addEventListener('click', (e) => e.stopPropagation());
+}
 
 })();
 </script>
