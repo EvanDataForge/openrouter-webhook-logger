@@ -324,6 +324,9 @@ function span_visible_for_hide(array $s, array $hide): bool
     if (in_array('heartbeat', $hide, true) && !empty($s['heartbeat'])) {
         return false;
     }
+    if (in_array('other', $hide, true) && $s['cron_name'] === null && empty($s['heartbeat'])) {
+        return false;
+    }
     return true;
 }
 
@@ -1071,7 +1074,17 @@ tbody td { padding: 7px 10px; vertical-align: middle; }
     z-index: 90;
 }
 #detail-backdrop.open {
-    opacity: 1;
+    opacity: 0;
+}
+#table-area.page-loading {
+    position: relative;
+}
+#table-area.page-loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.18);
+    z-index: 80;
     pointer-events: auto;
 }
 #detail-header {
@@ -1699,6 +1712,7 @@ details.collapsible > .detail-content {
     <span class="hide-label">Hide:</span>
     <button class="hide-toggle" data-type="cron">Cron</button>
     <button class="hide-toggle" data-type="heartbeat">Heartbeat</button>
+    <button class="hide-toggle" data-type="other">Other</button>
     <button type="button" class="clear-filters" id="clear-filters">Clear filters</button>
 </div>
 
@@ -1941,7 +1955,7 @@ function restoreFilterStateFromUrl() {
     const hide = (params.get('hide') || '')
         .split(',')
         .map(value => value.trim())
-        .filter(value => value === 'cron' || value === 'heartbeat');
+        .filter(value => value === 'cron' || value === 'heartbeat' || value === 'other');
 
     state.search = search;
     state.hide = new Set(hide);
@@ -2037,6 +2051,7 @@ function resetFilteredState() {
 async function loadSpans(options = {}) {
     const append = !!options.append;
     const body = document.getElementById('spans-body');
+    document.getElementById('table-area').classList.add('page-loading');
     if (!append) {
         body.innerHTML = '<tr class="state-row"><td colspan="11"><span class="spinner"></span>Loading…</td></tr>';
     }
@@ -2054,15 +2069,16 @@ async function loadSpans(options = {}) {
 
     let data;
     try {
-        const r = await fetch(apiUrl('spans', Object.fromEntries(params.entries())));
-        data = await r.json();
-    } catch (e) {
-        if (!append) {
-            body.innerHTML = '<tr class="state-row"><td colspan="11">Failed to load data.</td></tr>';
+        try {
+            const r = await fetch(apiUrl('spans', Object.fromEntries(params.entries())));
+            data = await r.json();
+        } catch (e) {
+            if (!append) {
+                body.innerHTML = '<tr class="state-row"><td colspan="11">Failed to load data.</td></tr>';
+            }
+            renderPagination();
+            return;
         }
-        renderPagination();
-        return;
-    }
 
     state.filteredMode = !!data.filtered;
     state.filteredHasMore = !!data.has_more;
@@ -2121,6 +2137,9 @@ async function loadSpans(options = {}) {
 
     renderPagination();
     updateSortHeaders();
+    } finally {
+        document.getElementById('table-area').classList.remove('page-loading');
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2245,6 +2264,14 @@ document.querySelectorAll('.hide-toggle').forEach(btn => {
         } else {
             state.hide.add(type);
             this.classList.add('active');
+            const allTypes = ['cron', 'heartbeat', 'other'];
+            if (allTypes.every(t => state.hide.has(t))) {
+                allTypes.filter(t => t !== type).forEach(t => {
+                    state.hide.delete(t);
+                    document.querySelector(`.hide-toggle[data-type="${t}"]`)
+                        ?.classList.remove('active');
+                });
+            }
         }
         state.page = 1;
         resetFilteredState();
@@ -2332,7 +2359,6 @@ function closeDetailPanel() {
 }
 
 document.getElementById('detail-close').addEventListener('click', closeDetailPanel);
-document.getElementById('detail-backdrop').addEventListener('click', closeDetailPanel);
 
 // ---------------------------------------------------------------------------
 // Render detail panel

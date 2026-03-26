@@ -77,6 +77,9 @@ def _apply_filters(spans: list[dict[str, Any]], params: dict[str, str]) -> list[
     if "heartbeat" in hidden:
         filtered = [span for span in filtered if not span.get("heartbeat")]
 
+    if "other" in hidden:
+        filtered = [span for span in filtered if span.get("cron_name") or span.get("heartbeat")]
+
     return filtered
 
 
