@@ -82,6 +82,93 @@ session_set_cookie_params([
 session_start();
 
 // ---------------------------------------------------------------------------
+// Remember-Token Store
+// ---------------------------------------------------------------------------
+
+class TokenStore
+{
+    private const PATH   = __DIR__ . '/../data/tokens.json';
+    private const TTL    = 30 * 24 * 3600; // 30 Tage in Sekunden
+    private const COOKIE = 'remember_token';
+
+    /** Erzeugt ein neues Token, speichert den SHA-256-Hash und setzt das Cookie. */
+    public static function create(): void
+    {
+        $raw  = bin2hex(random_bytes(32));
+        $hash = hash('sha256', $raw);
+        $data = self::load();
+        $data[$hash] = ['expires_at' => time() + self::TTL];
+        self::save($data);
+        self::setCookie($raw, time() + self::TTL);
+    }
+
+    /** Prüft das Raw-Token aus dem Cookie gegen den gespeicherten Hash + Ablaufzeit. */
+    public static function validate(): bool
+    {
+        $raw = $_COOKIE[self::COOKIE] ?? '';
+        if ($raw === '') {
+            return false;
+        }
+        $hash = hash('sha256', $raw);
+        $data = self::load();
+        if (!isset($data[$hash])) {
+            return false;
+        }
+        if ($data[$hash]['expires_at'] < time()) {
+            unset($data[$hash]);
+            self::save($data);
+            return false;
+        }
+        return true;
+    }
+
+    /** Widerruft das Token aus dem Cookie und löscht das Cookie. */
+    public static function revoke(): void
+    {
+        $raw = $_COOKIE[self::COOKIE] ?? '';
+        if ($raw !== '') {
+            $hash = hash('sha256', $raw);
+            $data = self::load();
+            unset($data[$hash]);
+            self::save($data);
+        }
+        self::setCookie('', time() - 3600);
+    }
+
+    private static function load(): array
+    {
+        if (!file_exists(self::PATH)) {
+            return [];
+        }
+        $data = json_decode(file_get_contents(self::PATH), true) ?? [];
+        $now  = time();
+        return array_filter($data, fn($v) => $v['expires_at'] >= $now);
+    }
+
+    private static function save(array $data): void
+    {
+        $dir = dirname(self::PATH);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0750, true);
+        }
+        $tmp = self::PATH . '.tmp';
+        file_put_contents($tmp, json_encode($data), LOCK_EX);
+        rename($tmp, self::PATH);
+    }
+
+    private static function setCookie(string $value, int $expires): void
+    {
+        setcookie(self::COOKIE, $value, [
+            'expires'  => $expires,
+            'path'     => '/',
+            'secure'   => isset($_SERVER['HTTPS']),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Auth helpers
 // ---------------------------------------------------------------------------
 
@@ -90,6 +177,13 @@ function viewer_check_auth(): bool
     global $VIEWER_AUTH_DISABLED;
     if ($VIEWER_AUTH_DISABLED) {
         return true;
+    }
+    if (empty($_SESSION['viewer_authed']) && TokenStore::validate()) {
+        session_regenerate_id(true);
+        $_SESSION['viewer_authed'] = true;
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
+        }
     }
     return !empty($_SESSION['viewer_authed']);
 }
@@ -104,11 +198,13 @@ function viewer_do_login(string $password, array $config): bool
     session_regenerate_id(true);
     $_SESSION['viewer_authed'] = true;
     $_SESSION['csrf_token']    = bin2hex(random_bytes(16));
+    TokenStore::create();
     return true;
 }
 
 function viewer_do_logout(): void
 {
+    TokenStore::revoke();
     session_destroy();
 }
 

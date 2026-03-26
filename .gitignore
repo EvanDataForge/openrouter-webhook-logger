@@ -4,3 +4,5 @@ config/config.php
 .DS_Store
 config.php
 debug/
+data/tokens.json
+data/*.tmp

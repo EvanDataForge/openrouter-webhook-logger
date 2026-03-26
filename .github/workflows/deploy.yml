@@ -39,6 +39,7 @@ jobs:
             mirror -R src/ /src/;
             mirror -R --exclude-glob config.php config/ /config/;
             mirror -R public/ /public/;
+            mirror -R data/ /data/;
             quit
           "
 

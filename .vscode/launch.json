@@ -19,7 +19,7 @@
             "request": "launch",
             "port": 9003,
             "pathMappings": {
-                "${workspaceFolder}": "${workspaceFolder}"
+                "/Users/openclaw/dev/openrouter-webhook-logger": "${workspaceFolder}"
             }
         },
         {
