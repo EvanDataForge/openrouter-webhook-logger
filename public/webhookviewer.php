@@ -444,7 +444,6 @@ function json_out(array $data, int $status = 200): void
 
 function action_spans(PDO $pdo): void
 {
-    $hideScanLimit = 500;
     $opts = [
         'sort'   => $_GET['sort']   ?? 'started_at',
         'dir'    => $_GET['dir']    ?? 'DESC',
@@ -459,53 +458,29 @@ function action_spans(PDO $pdo): void
 
     try {
         if ($hide) {
-            $batchSize = min(200, $hideScanLimit);
+            $batchSize = 100;
+            $batch = db_get_spans($pdo, $opts + [
+                'per'    => $batchSize,
+                'offset' => $scanOffset,
+            ]);
+            $batchCount = count($batch);
             $spans = [];
-            $scanned = 0;
-            $offset = $scanOffset;
-            $hasMore = false;
-            $filledPage = false;
-            $batchCount = 0;
-
-            do {
-                $requestSize = min($batchSize, $hideScanLimit - $scanned);
-                if ($requestSize <= 0) {
-                    break;
+            foreach ($batch as $row) {
+                $row = enrich_span($row);
+                if (!span_visible_for_hide($row, $hide)) {
+                    continue;
                 }
-                $batch = db_get_spans($pdo, $opts + [
-                    'per' => $requestSize,
-                    'offset' => $offset,
-                ]);
-                $batchCount = count($batch);
-                if ($batchCount === 0) {
-                    break;
-                }
-
-                foreach ($batch as $row) {
-                    $row = enrich_span($row);
-                    if (!span_visible_for_hide($row, $hide)) {
-                        continue;
-                    }
-                    $spans[] = $row;
-                    if (count($spans) >= $per) {
-                        $filledPage = true;
-                        break;
-                    }
-                }
-
-                $scanned += $batchCount;
-                $offset += $batchCount;
-            } while (!$filledPage && $batchCount === $requestSize && $scanned < $hideScanLimit);
-
-            $hasMore = $filledPage || ($batchCount > 0 && $batchCount === $requestSize);
+                $spans[] = $row;
+            }
+            unset($batch);
+            $hasMore = ($batchCount === $batchSize);
             json_out([
-                'spans' => $spans,
-                'total' => null,
-                'page' => 1,
-                'filtered' => true,
-                'next_offset' => $offset,
-                'has_more' => $hasMore,
-                'scan_truncated' => $scanned >= $hideScanLimit,
+                'spans'       => $spans,
+                'total'       => null,
+                'page'        => 1,
+                'filtered'    => true,
+                'next_offset' => $scanOffset + $batchCount,
+                'has_more'    => $hasMore,
             ]);
         } else {
             $spans = array_map('enrich_span', db_get_spans($pdo, $opts));
@@ -1860,6 +1835,7 @@ const state = {
     filteredNextOffset: 0,
     filteredLoaded: 0,
     filteredTruncated: false,
+    filteredAutoAdvances: 0,
     activeId: null,
     activeTab: 'prompt',
     detailCache: {},
@@ -1953,6 +1929,7 @@ function resetFilteredState() {
     state.filteredNextOffset = 0;
     state.filteredLoaded = 0;
     state.filteredTruncated = false;
+    state.filteredAutoAdvances = 0;
 }
 
 async function loadSpans(options = {}) {
@@ -1997,12 +1974,15 @@ async function loadSpans(options = {}) {
         state.filteredLoaded = 0;
     }
 
-    if (spans.length === 0 && !append) {
-        body.innerHTML = '<tr class="state-row"><td colspan="11">No spans found.</td></tr>';
-        renderPagination();
-        return;
-    }
-    if (spans.length === 0 && append) {
+    if (spans.length === 0) {
+        if (state.filteredHasMore && state.filteredAutoAdvances < 20) {
+            state.filteredAutoAdvances++;
+            await loadSpans({ append: true });
+            return;
+        }
+        if (!append) {
+            body.innerHTML = '<tr class="state-row"><td colspan="11">No spans found.</td></tr>';
+        }
         renderPagination();
         return;
     }
@@ -2083,17 +2063,14 @@ function renderPagination() {
                 : '';
             return;
         }
-        const disabled = state.filteredTruncated ? ' disabled' : '';
-        const label = state.filteredTruncated ? 'Scan limit reached' : 'Load more';
-        el.innerHTML = `<button class="page-btn" id="load-more-filtered"${disabled}>${label}</button>`;
+        el.innerHTML = `<button class="page-btn" id="load-more-filtered">Load more</button>`;
         const button = document.getElementById('load-more-filtered');
-        if (button && !state.filteredTruncated) {
-            button.addEventListener('click', async () => {
-                button.disabled = true;
-                button.textContent = 'Loading…';
-                await loadSpans({ append: true });
-            });
-        }
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+            button.textContent = 'Loading…';
+            state.filteredAutoAdvances = 0;
+            await loadSpans({ append: true });
+        });
         return;
     }
 
