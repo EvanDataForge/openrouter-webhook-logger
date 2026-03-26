@@ -749,6 +749,11 @@ header {
     justify-content: space-between;
     flex-shrink: 0;
 }
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
 header h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
 header .header-right { display: flex; align-items: center; gap: 12px; }
 .mode-badge {
@@ -776,20 +781,39 @@ header .header-right { display: flex; align-items: center; gap: 12px; }
 }
 .header-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
 .header-btn:disabled { opacity: 0.65; cursor: wait; }
+.btn-refresh {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+.btn-refresh svg {
+    width: 19px;
+    height: 19px;
+    display: block;
+    fill: currentColor;
+}
 .btn-refresh.is-loading::before {
     content: '';
-    display: inline-block;
+    display: block;
     width: 11px;
     height: 11px;
-    margin-right: 7px;
     border: 2px solid rgba(255,255,255,0.35);
     border-top-color: #fff;
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
-    vertical-align: -1px;
+    position: absolute;
+    inset: 0;
+    margin: auto;
 }
-.btn-logout {
-    background: transparent;
+.btn-refresh.is-loading {
+    color: transparent;
+}
+.btn-refresh.is-loading svg {
+    opacity: 0;
 }
 .burger-menu {
     position: relative;
@@ -817,6 +841,10 @@ header .header-right { display: flex; align-items: center; gap: 12px; }
     color: var(--text);
     cursor: pointer;
     border-radius: 0;
+}
+.burger-divider {
+    margin: 4px 0;
+    border-top: 1px solid var(--border);
 }
 .burger-item:hover { background: var(--row-hover); }
 .flash-msg {
@@ -887,6 +915,24 @@ header .header-right { display: flex; align-items: center; gap: 12px; }
 }
 .hide-toggle:hover { border-color: var(--text); color: var(--text); }
 .hide-toggle.active { background: var(--text); color: #fff; border-color: var(--text); }
+.clear-filters {
+    border: none;
+    background: none;
+    color: var(--muted);
+    padding: 0;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.clear-filters:hover { color: var(--text); }
+.clear-filters:disabled {
+    color: #b7bfcb;
+    cursor: default;
+    text-decoration: none;
+    opacity: 0.7;
+}
 
 /* ---------- Main layout ---------- */
 #main-area {
@@ -1330,9 +1376,10 @@ details.collapsible > .detail-content {
     }
 
     header h1 {
-        width: 100%;
+        width: auto;
     }
 
+    .header-left,
     header .header-right {
         width: 100%;
         justify-content: space-between;
@@ -1342,8 +1389,13 @@ details.collapsible > .detail-content {
 
     .header-btn,
     .mode-badge,
+    .header-left,
     header .header-right form {
         flex: 1 1 auto;
+    }
+
+    .btn-refresh {
+        flex: 0 0 auto;
     }
 
     header .header-right form button {
@@ -1353,7 +1405,7 @@ details.collapsible > .detail-content {
     #toolbar {
         padding: 8px 12px;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        grid-template-columns: minmax(0, 1fr) auto auto auto auto;
         align-items: center;
         gap: 6px;
     }
@@ -1366,7 +1418,8 @@ details.collapsible > .detail-content {
     }
 
     .hide-label,
-    .hide-toggle {
+    .hide-toggle,
+    .clear-filters {
         font-size: 11px;
     }
 
@@ -1604,17 +1657,18 @@ details.collapsible > .detail-content {
 <!-- AUTHENTICATED DASHBOARD                                                 -->
 <!-- ====================================================================== -->
 <header>
-    <h1>OpenRouter Trace Dashboard</h1>
+    <div class="header-left">
+        <h1>OpenRouter Trace Dashboard</h1>
+        <button type="button" class="header-btn btn-refresh" id="refresh-dashboard" title="Refresh" aria-label="Refresh">
+            <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 118.04 122.88" aria-hidden="true" focusable="false">
+                <path d="M16.08,59.26A8,8,0,0,1,0,59.26a59,59,0,0,1,97.13-45V8a8,8,0,1,1,16.08,0V33.35a8,8,0,0,1-8,8L80.82,43.62a8,8,0,1,1-1.44-15.95l8-.73A43,43,0,0,0,16.08,59.26Zm22.77,19.6a8,8,0,0,1,1.44,16l-10.08.91A42.95,42.95,0,0,0,102,63.86a8,8,0,0,1,16.08,0A59,59,0,0,1,22.3,110v4.18a8,8,0,0,1-16.08,0V89.14h0a8,8,0,0,1,7.29-8l25.31-2.3Z"/>
+            </svg>
+        </button>
+    </div>
     <div class="header-right">
         <?php if ($isMockMode): ?>
         <span class="mode-badge">Mock API</span>
         <?php endif; ?>
-        <button type="button" class="header-btn btn-refresh" id="refresh-dashboard">Refresh</button>
-        <form method="POST" style="margin:0">
-            <input type="hidden" name="_viewer_action" value="logout">
-            <input type="hidden" name="csrf" value="<?= htmlspecialchars(csrf_token()) ?>">
-            <button type="submit" class="header-btn btn-logout">Sign out</button>
-        </form>
         <div class="burger-menu" id="burger-menu">
             <button type="button" class="header-btn" id="burger-toggle" aria-label="Menu">&#9776;</button>
             <div class="burger-dropdown" id="burger-dropdown" hidden>
@@ -1622,8 +1676,14 @@ details.collapsible > .detail-content {
                     <input type="hidden" name="_viewer_action" value="cleanup">
                     <input type="hidden" name="csrf" value="<?= htmlspecialchars(csrf_token()) ?>">
                     <button type="submit" class="burger-item" onclick="return confirm('Delete all entries older than 3 days? This action cannot be undone.')">
-                        Cleanup Database
+                        Cleanup Database...
                     </button>
+                </form>
+                <div class="burger-divider" role="separator" aria-hidden="true"></div>
+                <form method="POST" style="margin:0">
+                    <input type="hidden" name="_viewer_action" value="logout">
+                    <input type="hidden" name="csrf" value="<?= htmlspecialchars(csrf_token()) ?>">
+                    <button type="submit" class="burger-item">Sign out</button>
                 </form>
             </div>
         </div>
@@ -1639,6 +1699,7 @@ details.collapsible > .detail-content {
     <span class="hide-label">Hide:</span>
     <button class="hide-toggle" data-type="cron">Cron</button>
     <button class="hide-toggle" data-type="heartbeat">Heartbeat</button>
+    <button type="button" class="clear-filters" id="clear-filters">Clear filters</button>
 </div>
 
 <div id="main-area">
@@ -1893,6 +1954,8 @@ function restoreFilterStateFromUrl() {
     document.querySelectorAll('.hide-toggle').forEach(btn => {
         btn.classList.toggle('active', state.hide.has(btn.dataset.type));
     });
+
+    updateClearFiltersButton();
 }
 
 function setRefreshBusy(isBusy) {
@@ -1900,7 +1963,35 @@ function setRefreshBusy(isBusy) {
     if (!button) return;
     button.disabled = isBusy;
     button.classList.toggle('is-loading', isBusy);
-    button.textContent = isBusy ? 'Refreshing…' : 'Refresh';
+    button.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+}
+
+function updateClearFiltersButton() {
+    const button = document.getElementById('clear-filters');
+    if (!button) return;
+    const hasActiveFilters = state.search.trim() !== '' || state.hide.size > 0;
+    button.disabled = !hasActiveFilters;
+    button.setAttribute('aria-disabled', hasActiveFilters ? 'false' : 'true');
+}
+
+function clearFilters() {
+    state.search = '';
+    state.hide = new Set();
+    state.page = 1;
+    resetFilteredState();
+
+    const searchInput = document.getElementById('search-filter');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    document.querySelectorAll('.hide-toggle').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    updateClearFiltersButton();
+    syncFilterStateToUrl();
+    loadSpans();
 }
 
 async function refreshDashboard() {
@@ -2139,6 +2230,7 @@ document.getElementById('search-filter').addEventListener('input', function () {
         state.search = this.value.trim();
         state.page   = 1;
         resetFilteredState();
+        updateClearFiltersButton();
         syncFilterStateToUrl();
         loadSpans();
     }, 350);
@@ -2156,9 +2248,14 @@ document.querySelectorAll('.hide-toggle').forEach(btn => {
         }
         state.page = 1;
         resetFilteredState();
+        updateClearFiltersButton();
         syncFilterStateToUrl();
         loadSpans();
     });
+});
+
+document.getElementById('clear-filters').addEventListener('click', () => {
+    clearFilters();
 });
 
 document.getElementById('refresh-dashboard').addEventListener('click', () => {
