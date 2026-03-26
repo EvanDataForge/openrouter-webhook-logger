@@ -459,27 +459,40 @@ function action_spans(PDO $pdo): void
     try {
         if ($hide) {
             $batchSize = 100;
-            $batch = db_get_spans($pdo, $opts + [
-                'per'    => $batchSize,
-                'offset' => $scanOffset,
-            ]);
-            $batchCount = count($batch);
-            $spans = [];
-            foreach ($batch as $row) {
-                $row = enrich_span($row);
-                if (!span_visible_for_hide($row, $hide)) {
-                    continue;
+            $spans     = [];
+            $offset    = $scanOffset;
+            $lastCount = 0;
+
+            while (count($spans) < $per) {
+                $batch = db_get_spans($pdo, $opts + [
+                    'per'    => $batchSize,
+                    'offset' => $offset,
+                ]);
+                $lastCount = count($batch);
+                foreach ($batch as $row) {
+                    $row = enrich_span($row);
+                    if (!span_visible_for_hide($row, $hide)) {
+                        continue;
+                    }
+                    $spans[] = $row;
+                    if (count($spans) >= $per) {
+                        break;
+                    }
                 }
-                $spans[] = $row;
+                unset($batch); // free raw JSON blobs before next iteration
+                $offset += $lastCount;
+                if ($lastCount < $batchSize) {
+                    break; // no more records in DB
+                }
             }
-            unset($batch);
-            $hasMore = ($batchCount === $batchSize);
+
+            $hasMore = ($lastCount === $batchSize && count($spans) >= $per);
             json_out([
                 'spans'       => $spans,
                 'total'       => null,
                 'page'        => 1,
                 'filtered'    => true,
-                'next_offset' => $scanOffset + $batchCount,
+                'next_offset' => $offset,
                 'has_more'    => $hasMore,
             ]);
         } else {
@@ -1835,7 +1848,6 @@ const state = {
     filteredNextOffset: 0,
     filteredLoaded: 0,
     filteredTruncated: false,
-    filteredAutoAdvances: 0,
     activeId: null,
     activeTab: 'prompt',
     detailCache: {},
@@ -1929,7 +1941,6 @@ function resetFilteredState() {
     state.filteredNextOffset = 0;
     state.filteredLoaded = 0;
     state.filteredTruncated = false;
-    state.filteredAutoAdvances = 0;
 }
 
 async function loadSpans(options = {}) {
@@ -1974,15 +1985,12 @@ async function loadSpans(options = {}) {
         state.filteredLoaded = 0;
     }
 
-    if (spans.length === 0) {
-        if (state.filteredHasMore && state.filteredAutoAdvances < 20) {
-            state.filteredAutoAdvances++;
-            await loadSpans({ append: true });
-            return;
-        }
-        if (!append) {
-            body.innerHTML = '<tr class="state-row"><td colspan="11">No spans found.</td></tr>';
-        }
+    if (spans.length === 0 && !append) {
+        body.innerHTML = '<tr class="state-row"><td colspan="11">No spans found.</td></tr>';
+        renderPagination();
+        return;
+    }
+    if (spans.length === 0 && append) {
         renderPagination();
         return;
     }
@@ -2068,7 +2076,6 @@ function renderPagination() {
         button.addEventListener('click', async () => {
             button.disabled = true;
             button.textContent = 'Loading…';
-            state.filteredAutoAdvances = 0;
             await loadSpans({ append: true });
         });
         return;
