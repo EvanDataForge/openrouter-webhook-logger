@@ -97,6 +97,8 @@ The project includes a read-only dashboard at:
 
 Configure the dashboard password via `viewer_password` in `config/config.php`.
 
+After a successful login, a **30-day remember token** is stored in an HttpOnly browser cookie. The token's SHA-256 hash is kept in `data/tokens.json` on the server — outside the web root and blocked by `.htaccess`. On the next visit (even after closing the browser), the session is restored automatically. Logging out revokes the token immediately.
+
 The dashboard currently provides:
 
 - sortable trace table with prompt/result previews
@@ -202,7 +204,8 @@ Notes:
 - **Never commit `config/config.php`** to version control. It is listed in `.gitignore`.
 - **`log_raw_payload`** stores the full JSON body (which may include prompt content). Enable only for debugging, disable in production.
 - **Check `auth_failures`** regularly to detect brute-force attempts against your endpoint.
-- The `src/` and `config/` directories are protected by `.htaccess`. Verify this is enforced on your host.
+- The `src/`, `config/`, and `data/` directories are protected by `.htaccess`. Verify this is enforced on your host.
+- **`data/tokens.json`** contains hashed remember tokens and must never be committed or made web-accessible. It is listed in `.gitignore` and protected by `data/.htaccess`.
 
 ---
 
